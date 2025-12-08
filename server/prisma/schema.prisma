@@ -1,0 +1,230 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// Tenants are businesses/customers using the LaaS platform
+model Tenant {
+  id        String       @id @default(uuid())
+  name      String
+  email     String?
+  website   String?
+  status    TenantStatus @default(ACTIVE)
+  metadata  Json?
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  apiKeys   TenantApiKey[]
+  products  Product[]
+  users     User[]
+  auditLogs AuditLog[]
+
+  @@index([status])
+  @@map("tenants")
+}
+
+enum TenantStatus {
+  ACTIVE
+  SUSPENDED
+  INACTIVE
+}
+
+// API keys for tenant authentication
+model TenantApiKey {
+  id         String       @id @default(uuid())
+  tenantId   String
+  name       String // Human-readable name for the key
+  keyHash    String       @unique // Hashed API key
+  keyPrefix  String // First 8 chars for identification (e.g., "sk_live_")
+  lastUsedAt DateTime?
+  expiresAt  DateTime?
+  status     ApiKeyStatus @default(ACTIVE)
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([keyHash])
+  @@map("tenant_api_keys")
+}
+
+enum ApiKeyStatus {
+  ACTIVE
+  REVOKED
+  EXPIRED
+}
+
+// Products belong to tenants (multi-tenant)
+model Product {
+  id          String   @id @default(uuid())
+  tenantId    String
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  plans  Plan[]
+
+  @@index([tenantId])
+  @@map("products")
+}
+
+model Plan {
+  id            String   @id @default(uuid())
+  productId     String
+  name          String
+  description   String?
+  maxSeats      Int?
+  maxDevices    Int?
+  expiresInDays Int?
+  features      Json? // Array of strings
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  product  Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  licenses License[]
+
+  @@map("plans")
+}
+
+// Users belong to tenants (replaces installId concept)
+model User {
+  id         String   @id @default(uuid())
+  tenantId   String
+  externalId String // Customer's internal user ID
+  email      String?
+  name       String?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  tenant      Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  licenses    UserLicense[]
+  activations Activation[]
+
+  @@unique([tenantId, externalId]) // One external ID per tenant
+  @@index([tenantId])
+  @@index([tenantId, externalId])
+  @@map("users")
+}
+
+// User-License relationship (many-to-many)
+model UserLicense {
+  id         String   @id @default(uuid())
+  userId     String
+  licenseId  String
+  assignedAt DateTime @default(now())
+  assignedBy String?
+  metadata   Json?
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  license License @relation(fields: [licenseId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, licenseId])
+  @@index([userId])
+  @@index([licenseId])
+  @@map("user_licenses")
+}
+
+model License {
+  id         String        @id @default(uuid())
+  productId  String
+  planId     String
+  status     LicenseStatus @default(ACTIVE)
+  maxSeats   Int?
+  maxDevices Int?
+  expiresAt  DateTime?
+  features   Json? // Array of strings
+  createdBy  String?
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+
+  plan         Plan          @relation(fields: [planId], references: [id], onDelete: Cascade)
+  userLicenses UserLicense[]
+  activations  Activation[]
+
+  @@index([planId])
+  @@index([status])
+  @@index([productId])
+  @@map("licenses")
+}
+
+model Activation {
+  id            String    @id @default(uuid())
+  userId        String
+  licenseId     String
+  deviceId      String?
+  deviceInfo    Json? // Store device metadata
+  activatedAt   DateTime  @default(now())
+  lastCheckedAt DateTime?
+  metadata      Json?
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  license License @relation(fields: [licenseId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, licenseId, deviceId]) // One activation per user-license-device combo
+  @@index([userId])
+  @@index([licenseId])
+  @@index([userId, licenseId])
+  @@map("activations")
+}
+
+model AuditLog {
+  id          String         @id @default(uuid())
+  tenantId    String?
+  action      AuditLogAction
+  entityType  EntityType
+  entityId    String
+  metadata    Json?
+  performedBy String?
+  timestamp   DateTime       @default(now())
+
+  tenant Tenant? @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([entityType, entityId])
+  @@index([timestamp])
+  @@map("audit_logs")
+}
+
+enum LicenseStatus {
+  ACTIVE
+  SUSPENDED
+  REVOKED
+  EXPIRED
+}
+
+enum AuditLogAction {
+  TENANT_CREATED
+  TENANT_UPDATED
+  TENANT_SUSPENDED
+  API_KEY_CREATED
+  API_KEY_REVOKED
+  USER_CREATED
+  USER_UPDATED
+  LICENSE_CREATED
+  LICENSE_ACTIVATED
+  LICENSE_ASSIGNED
+  LICENSE_VALIDATED
+  LICENSE_SUSPENDED
+  LICENSE_REVOKED
+  LICENSE_REACTIVATED
+  PRODUCT_CREATED
+  PLAN_CREATED
+  KEY_GENERATED
+}
+
+enum EntityType {
+  TENANT
+  API_KEY
+  USER
+  LICENSE
+  PRODUCT
+  PLAN
+  ACTIVATION
+}
