@@ -1,0 +1,17 @@
+{
+  "name": "@slice/sdk",
+  "version": "0.0.1",
+  "private": true,
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc -b",
+    "dev": "ts-node src/index.ts"
+  },
+  "dependencies": {
+    "axios": "^1.6.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.1.0",
+    "ts-node": "^10.9.1"
+  }
+}
