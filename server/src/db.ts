@@ -73,6 +73,19 @@ function prismaActivationToActivation(prismaActivation: any): Activation {
   };
 }
 
+function prismaTenantToTenant(prismaTenant: any): Tenant {
+  return {
+    id: prismaTenant.id,
+    name: prismaTenant.name,
+    email: prismaTenant.email || undefined,
+    website: prismaTenant.website || undefined,
+    status: prismaTenant.status.toLowerCase() as Tenant['status'],
+    metadata: prismaTenant.metadata as Record<string, any> | undefined,
+    createdAt: prismaTenant.createdAt,
+    updatedAt: prismaTenant.updatedAt,
+  };
+}
+
 function prismaAuditLogToAuditLog(prismaLog: any): AuditLog {
   return {
     id: prismaLog.id,
@@ -257,16 +270,7 @@ class PrismaDB {
         metadata: tenant.metadata ?? undefined,
       },
     });
-    return {
-      id: prismaTenant.id,
-      name: prismaTenant.name,
-      email: prismaTenant.email || undefined,
-      website: prismaTenant.website || undefined,
-      status: prismaTenant.status.toLowerCase() as Tenant['status'],
-      metadata: prismaTenant.metadata as Record<string, any> | undefined,
-      createdAt: prismaTenant.createdAt,
-      updatedAt: prismaTenant.updatedAt,
-    };
+    return prismaTenantToTenant(prismaTenant);
   }
 
   async getTenant(id: string): Promise<Tenant | undefined> {
@@ -274,16 +278,7 @@ class PrismaDB {
       where: { id },
     });
     if (!prismaTenant) return undefined;
-    return {
-      id: prismaTenant.id,
-      name: prismaTenant.name,
-      email: prismaTenant.email || undefined,
-      website: prismaTenant.website || undefined,
-      status: prismaTenant.status.toLowerCase() as Tenant['status'],
-      metadata: prismaTenant.metadata as Record<string, any> | undefined,
-      createdAt: prismaTenant.createdAt,
-      updatedAt: prismaTenant.updatedAt,
-    };
+    return prismaTenantToTenant(prismaTenant);
   }
 
   async getAllTenants(): Promise<Tenant[]> {
