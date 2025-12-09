@@ -86,6 +86,19 @@ function prismaTenantToTenant(prismaTenant: any): Tenant {
   };
 }
 
+function prismaUserToUser(prismaUser: any): LaaSUser {
+  return {
+    id: prismaUser.id,
+    tenantId: prismaUser.tenantId,
+    externalId: prismaUser.externalId,
+    email: prismaUser.email || undefined,
+    name: prismaUser.name || undefined,
+    metadata: prismaUser.metadata as Record<string, any> | undefined,
+    createdAt: prismaUser.createdAt,
+    updatedAt: prismaUser.updatedAt,
+  };
+}
+
 function prismaAuditLogToAuditLog(prismaLog: any): AuditLog {
   return {
     id: prismaLog.id,
@@ -383,16 +396,7 @@ class PrismaDB {
         metadata: user.metadata ?? undefined,
       },
     });
-    return {
-      id: prismaUser.id,
-      tenantId: prismaUser.tenantId,
-      externalId: prismaUser.externalId,
-      email: prismaUser.email || undefined,
-      name: prismaUser.name || undefined,
-      metadata: prismaUser.metadata as Record<string, any> | undefined,
-      createdAt: prismaUser.createdAt,
-      updatedAt: prismaUser.updatedAt,
-    };
+    return prismaUserToUser(prismaUser);
   }
 
   async getUserByExternalId(tenantId: string, externalId: string): Promise<LaaSUser | undefined> {
@@ -405,16 +409,7 @@ class PrismaDB {
       },
     });
     if (!prismaUser) return undefined;
-    return {
-      id: prismaUser.id,
-      tenantId: prismaUser.tenantId,
-      externalId: prismaUser.externalId,
-      email: prismaUser.email || undefined,
-      name: prismaUser.name || undefined,
-      metadata: prismaUser.metadata as Record<string, any> | undefined,
-      createdAt: prismaUser.createdAt,
-      updatedAt: prismaUser.updatedAt,
-    };
+    return prismaUserToUser(prismaUser);
   }
 
   async getUserLicenses(userId: string): Promise<License[]> {
