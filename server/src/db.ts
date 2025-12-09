@@ -17,11 +17,6 @@ const pool = new Pool({ connectionString });
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
-// Type aliases for Prisma enums (matching schema)
-type PrismaLicenseStatus = LicenseStatus;
-type PrismaAuditLogAction = AuditLogAction;
-type PrismaEntityType = EntityType;
-
 // Helper functions to convert Prisma models to our types
 function prismaProductToProduct(prismaProduct: any): Product {
   return {
@@ -92,8 +87,8 @@ function prismaAuditLogToAuditLog(prismaLog: any): AuditLog {
 }
 
 // Helper to convert LicenseStatus enum
-function toPrismaLicenseStatus(status: string): PrismaLicenseStatus {
-  return status.toUpperCase() as PrismaLicenseStatus;
+function toPrismaLicenseStatus(status: string): LicenseStatus {
+  return status.toUpperCase() as LicenseStatus;
 }
 
 // Helper to convert AuditLogAction
@@ -157,7 +152,7 @@ class PrismaDB {
 
   async updateLicense(id: string, updates: Partial<License>): Promise<License | undefined> {
     const updateData: any = {};
-    
+
     if (updates.status !== undefined) {
       updateData.status = toPrismaLicenseStatus(updates.status);
     }
@@ -213,7 +208,7 @@ class PrismaDB {
 
   async getAuditLogs(entityType?: string, entityId?: string, tenantId?: string): Promise<AuditLog[]> {
     const where: any = {};
-    
+
     if (tenantId) {
       where.tenantId = tenantId;
     }
@@ -229,7 +224,7 @@ class PrismaDB {
       orderBy: { timestamp: 'desc' },
       take: 10000, // Keep only last 10,000 logs
     });
-    
+
     return prismaLogs.map(prismaAuditLogToAuditLog);
   }
 
@@ -251,7 +246,7 @@ class PrismaDB {
   }
 
   // ========== TENANT METHODS ==========
-  
+
   async createTenant(tenant: Omit<Tenant, 'id' | 'createdAt' | 'updatedAt'>): Promise<Tenant> {
     const prismaTenant = await prisma.tenant.create({
       data: {
@@ -313,9 +308,9 @@ class PrismaDB {
       where: { keyHash },
       include: { tenant: true },
     });
-    
+
     if (!prismaApiKey || !prismaApiKey.tenant) return undefined;
-    
+
     // Verify the key matches
     if (!verifyApiKey(apiKey, prismaApiKey.keyHash)) {
       return undefined;
@@ -481,14 +476,7 @@ class PrismaDB {
         description: product.description,
       },
     });
-    return {
-      id: prismaProduct.id,
-      tenantId: prismaProduct.tenantId,
-      name: prismaProduct.name,
-      description: prismaProduct.description || undefined,
-      createdAt: prismaProduct.createdAt,
-      updatedAt: prismaProduct.updatedAt,
-    };
+    return prismaProductToProduct(prismaProduct);
   }
 
   async getProduct(id: string): Promise<Product | undefined> {
@@ -496,14 +484,7 @@ class PrismaDB {
       where: { id },
     });
     if (!prismaProduct) return undefined;
-    return {
-      id: prismaProduct.id,
-      tenantId: prismaProduct.tenantId,
-      name: prismaProduct.name,
-      description: prismaProduct.description || undefined,
-      createdAt: prismaProduct.createdAt,
-      updatedAt: prismaProduct.updatedAt,
-    };
+    return prismaProductToProduct(prismaProduct);
   }
 
   async getProductsByTenant(tenantId: string): Promise<Product[]> {
@@ -552,16 +533,7 @@ class PrismaDB {
         lastCheckedAt: new Date(),
       },
     });
-    return {
-      id: prismaActivation.id,
-      userId: prismaActivation.userId,
-      licenseId: prismaActivation.licenseId,
-      deviceId: prismaActivation.deviceId || undefined,
-      deviceInfo: prismaActivation.deviceInfo as Record<string, any> | undefined,
-      activatedAt: prismaActivation.activatedAt,
-      lastCheckedAt: prismaActivation.lastCheckedAt || undefined,
-      metadata: prismaActivation.metadata as Record<string, any> | undefined,
-    };
+    return prismaActivationToActivation(prismaActivation);
   }
 
   async getActivationsByUserAndLicense(userId: string, licenseId: string): Promise<Activation[]> {
@@ -583,7 +555,7 @@ class PrismaDB {
 
   async updateActivation(id: string, updates: Partial<Activation>): Promise<Activation | undefined> {
     const updateData: any = {};
-    
+
     if (updates.deviceId !== undefined) updateData.deviceId = updates.deviceId;
     if (updates.deviceInfo !== undefined) updateData.deviceInfo = updates.deviceInfo ?? undefined;
     if (updates.lastCheckedAt !== undefined) updateData.lastCheckedAt = updates.lastCheckedAt;
@@ -594,16 +566,7 @@ class PrismaDB {
         where: { id },
         data: updateData,
       });
-      return {
-        id: prismaActivation.id,
-        userId: prismaActivation.userId,
-        licenseId: prismaActivation.licenseId,
-        deviceId: prismaActivation.deviceId || undefined,
-        deviceInfo: prismaActivation.deviceInfo as Record<string, any> | undefined,
-        activatedAt: prismaActivation.activatedAt,
-        lastCheckedAt: prismaActivation.lastCheckedAt || undefined,
-        metadata: prismaActivation.metadata as Record<string, any> | undefined,
-      };
+      return prismaActivationToActivation(prismaActivation);
     } catch (error) {
       return undefined;
     }
