@@ -27,3 +27,13 @@ export interface TenantWithApiKey extends Tenant {
   apiKeyStatus: string;
   apiKeyExpiresAt?: Date;
 }
+
+export interface TenantSession {
+  id: string;
+  tenantId: string;
+  tokenHash: string;
+  expiresAt: Date;
+  createdAt: Date;
+  lastUsedAt: Date;
+  revokedAt?: Date;
+}
