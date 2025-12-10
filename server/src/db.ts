@@ -1,7 +1,7 @@
 import { PrismaClient, AuditLogAction, EntityType, LicenseStatus } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
-import { Product, Plan, License, Activation, AuditLog, Tenant, TenantApiKey, LaaSUser, UserLicense, TenantWithApiKey } from './types';
+import { Product, Plan, License, Activation, AuditLog, Tenant, TenantApiKey, LaaSUser, UserLicense, TenantWithApiKey, TenantSession } from './types';
 import { hashApiKey, verifyApiKey, getApiKeyPrefix } from './services/api-key-service';
 import dotenv from 'dotenv';
 
@@ -77,7 +77,7 @@ function prismaTenantToTenant(prismaTenant: any): Tenant {
   return {
     id: prismaTenant.id,
     name: prismaTenant.name,
-    email: prismaTenant.email || undefined,
+    email: prismaTenant.email || '', // Email is now required, fallback to empty string if null
     website: prismaTenant.website || undefined,
     status: prismaTenant.status.toLowerCase() as Tenant['status'],
     metadata: prismaTenant.metadata as Record<string, any> | undefined,
@@ -273,15 +273,16 @@ class PrismaDB {
 
   // ========== TENANT METHODS ==========
 
-  async createTenant(tenant: Omit<Tenant, 'id' | 'createdAt' | 'updatedAt'>): Promise<Tenant> {
+  async createTenant(tenant: Omit<Tenant, 'id' | 'createdAt' | 'updatedAt'> & { passwordHash: string }): Promise<Tenant> {
     const prismaTenant = await prisma.tenant.create({
       data: {
         name: tenant.name,
         email: tenant.email,
+        passwordHash: tenant.passwordHash,
         website: tenant.website,
-        status: tenant.status.toUpperCase() as any,
+        status: (tenant.status || 'inactive').toUpperCase() as any,
         metadata: tenant.metadata ?? undefined,
-      },
+      } as any, // Type assertion needed - Prisma types may need cache refresh
     });
     return prismaTenantToTenant(prismaTenant);
   }
@@ -301,13 +302,24 @@ class PrismaDB {
     return prismaTenants.map(t => ({
       id: t.id,
       name: t.name,
-      email: t.email || undefined,
+      email: t.email || '', // Email is now required, fallback to empty string if null
       website: t.website || undefined,
       status: t.status.toLowerCase() as Tenant['status'],
       metadata: t.metadata as Record<string, any> | undefined,
       createdAt: t.createdAt,
       updatedAt: t.updatedAt,
     }));
+  }
+
+  async getTenantByEmail(email: string): Promise<(Tenant & { passwordHash: string }) | undefined> {
+    const prismaTenant = await prisma.tenant.findFirst({
+      where: { email },
+    });
+    if (!prismaTenant) return undefined;
+    return {
+      ...prismaTenantToTenant(prismaTenant),
+      passwordHash: (prismaTenant as any).passwordHash, // Type assertion needed - Prisma types may need cache refresh
+    };
   }
 
   async getTenantByApiKey(apiKey: string): Promise<TenantWithApiKey | undefined> {
@@ -327,7 +339,7 @@ class PrismaDB {
     return {
       id: prismaApiKey.tenant.id,
       name: prismaApiKey.tenant.name,
-      email: prismaApiKey.tenant.email || undefined,
+      email: prismaApiKey.tenant.email || '', // Email is now required, fallback to empty string if null
       website: prismaApiKey.tenant.website || undefined,
       status: prismaApiKey.tenant.status.toLowerCase() as Tenant['status'],
       metadata: prismaApiKey.tenant.metadata as Record<string, any> | undefined,
@@ -560,6 +572,72 @@ class PrismaDB {
     } catch (error) {
       return undefined;
     }
+  }
+
+  // Session Management
+
+  async createSession(tenantId: string, tokenHash: string, expiresAt: Date): Promise<TenantSession> {
+    const prismaSession = await prisma.tenantSession.create({
+      data: {
+        tenantId,
+        tokenHash,
+        expiresAt,
+        lastUsedAt: new Date(),
+      },
+    });
+    return {
+      id: prismaSession.id,
+      tenantId: prismaSession.tenantId,
+      tokenHash: prismaSession.tokenHash,
+      expiresAt: prismaSession.expiresAt,
+      createdAt: prismaSession.createdAt,
+      lastUsedAt: prismaSession.lastUsedAt,
+      revokedAt: prismaSession.revokedAt || undefined,
+    };
+  }
+
+  async getSessionByTokenHash(tokenHash: string): Promise<TenantSession | undefined> {
+    const prismaSession = await prisma.tenantSession.findUnique({
+      where: { tokenHash },
+    });
+    if (!prismaSession) {
+      return undefined;
+    }
+    return {
+      id: prismaSession.id,
+      tenantId: prismaSession.tenantId,
+      tokenHash: prismaSession.tokenHash,
+      expiresAt: prismaSession.expiresAt,
+      createdAt: prismaSession.createdAt,
+      lastUsedAt: prismaSession.lastUsedAt,
+      revokedAt: prismaSession.revokedAt || undefined,
+    };
+  }
+
+  async revokeSession(sessionId: string): Promise<void> {
+    await prisma.tenantSession.update({
+      where: { id: sessionId },
+      data: { revokedAt: new Date() },
+    });
+  }
+
+  async updateSessionLastUsed(sessionId: string): Promise<void> {
+    await prisma.tenantSession.update({
+      where: { id: sessionId },
+      data: { lastUsedAt: new Date() },
+    });
+  }
+
+  async deleteExpiredSessions(): Promise<number> {
+    const result = await prisma.tenantSession.deleteMany({
+      where: {
+        OR: [
+          { expiresAt: { lt: new Date() } },
+          { revokedAt: { not: null } },
+        ],
+      },
+    });
+    return result.count;
   }
 }
 
