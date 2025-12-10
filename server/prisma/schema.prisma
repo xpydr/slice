@@ -19,6 +19,7 @@ model Tenant {
   updatedAt    DateTime     @updatedAt
 
   apiKeys   TenantApiKey[]
+  sessions  TenantSession[]
   products  Product[]
   users     User[]
   auditLogs AuditLog[]
@@ -57,6 +58,24 @@ enum ApiKeyStatus {
   ACTIVE
   REVOKED
   EXPIRED
+}
+
+// JWT sessions for tenant dashboard authentication
+model TenantSession {
+  id         String    @id @default(uuid())
+  tenantId   String
+  tokenHash  String    @unique // Hashed JWT token
+  expiresAt  DateTime
+  createdAt  DateTime  @default(now())
+  lastUsedAt DateTime  @default(now())
+  revokedAt  DateTime?
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([tokenHash])
+  @@index([expiresAt])
+  @@map("tenant_sessions")
 }
 
 // Products belong to tenants (multi-tenant)
