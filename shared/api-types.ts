@@ -17,7 +17,7 @@ export interface ApiResponse<T> {
 export interface Tenant {
   id: string;
   name: string;
-  email?: string;
+  email: string; // Required for login
   website?: string;
   status: 'active' | 'suspended' | 'inactive';
   metadata?: Record<string, any>;
@@ -163,6 +163,31 @@ export interface CreateTenantRequest {
   email?: string;
   website?: string;
   metadata?: Record<string, any>;
+}
+
+// Tenant registration request (for self-registration with password)
+export interface RegisterTenantRequest {
+  name: string;
+  email: string;
+  password: string;
+  website?: string;
+  metadata?: Record<string, any>;
+}
+
+// Login request
+export interface LoginRequest {
+  email: string;
+  password: string;
+}
+
+// Login response
+export interface LoginResponse {
+  success: boolean;
+  data?: {
+    tenant: Tenant;
+    token?: string; // Optional, deprecated - token is now in HTTP-only cookie
+  };
+  error?: string;
 }
 
 export interface CreateApiKeyRequest {
