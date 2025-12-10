@@ -1,12 +1,31 @@
 import Fastify from 'fastify';
 import validateRouter from './routes/validate';
 import adminRouter from './routes/admin';
+import cors from '@fastify/cors';
+import cookie from '@fastify/cookie';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 const fastify = Fastify({
   logger: true
 });
 
-const PORT = parseInt(process.env.PORT || '3000', 10);
+const PORT = parseInt(process.env.PORT || '3001', 10);
+
+// Register cookie plugin
+fastify.register(cookie, {
+  secret: process.env.JWT_SECRET || 'change-me-in-production',
+  parseOptions: {},
+});
+
+// Register CORS
+fastify.register(cors, {
+  origin: process.env.CORS_ORIGIN || '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true, // Allow cookies to be sent
+});
 
 // Health check
 fastify.get('/health', async () => {
