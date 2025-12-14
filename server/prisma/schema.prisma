@@ -8,21 +8,24 @@ datasource db {
 
 // Tenants are businesses/customers using the LaaS platform
 model Tenant {
-  id           String       @id @default(uuid())
-  name         String
-  email        String
-  passwordHash String
-  website      String?
-  status       TenantStatus @default(INACTIVE)
-  metadata     Json?
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
+  id             String       @id @default(uuid())
+  name           String
+  email          String
+  passwordHash   String
+  website        String?
+  status         TenantStatus @default(INACTIVE)
+  emailVerified  Boolean      @default(false)
+  emailVerifiedAt DateTime?
+  metadata       Json?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
 
-  apiKeys   TenantApiKey[]
-  sessions  TenantSession[]
-  products  Product[]
-  users     User[]
-  auditLogs AuditLog[]
+  apiKeys                TenantApiKey[]
+  sessions               TenantSession[]
+  products               Product[]
+  users                  User[]
+  auditLogs              AuditLog[]
+  emailVerificationCodes EmailVerificationCode[]
 
   @@index([status])
   @@map("tenants")
@@ -243,4 +246,19 @@ enum EntityType {
   PRODUCT
   PLAN
   ACTIVATION
+}
+
+// Email verification codes for tenant email verification
+model EmailVerificationCode {
+  id        String   @id @default(uuid())
+  tenantId  String
+  codeHash  String   // Hashed verification code
+  expiresAt DateTime
+  createdAt DateTime  @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([expiresAt])
+  @@map("email_verification_codes")
 }
