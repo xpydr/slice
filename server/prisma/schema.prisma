@@ -100,7 +100,6 @@ model Plan {
   name          String
   description   String?
   maxSeats      Int?
-  maxDevices    Int?
   expiresInDays Int?
   features      Json? // Array of strings
   createdAt     DateTime @default(now())
@@ -157,7 +156,6 @@ model License {
   planId     String
   status     LicenseStatus @default(ACTIVE)
   maxSeats   Int?
-  maxDevices Int?
   expiresAt  DateTime?
   features   Json? // Array of strings
   createdBy  String?
@@ -178,8 +176,6 @@ model Activation {
   id            String    @id @default(uuid())
   userId        String
   licenseId     String
-  deviceId      String?
-  deviceInfo    Json? // Store device metadata
   activatedAt   DateTime  @default(now())
   lastCheckedAt DateTime?
   metadata      Json?
@@ -187,7 +183,7 @@ model Activation {
   user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   license License @relation(fields: [licenseId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, licenseId, deviceId]) // One activation per user-license-device combo
+  @@unique([userId, licenseId]) // One activation per user-license combo
   @@index([userId])
   @@index([licenseId])
   @@index([userId, licenseId])
