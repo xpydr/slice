@@ -64,7 +64,7 @@ export function Footer() {
         </div>
         <div className="mt-8 pt-8 border-t text-center text-sm text-muted-foreground">
           <p>&copy; {new Date().getFullYear()} SliceAPI. All rights reserved.</p>
-          <p>Powered by <Link href="https://www.sliceapi.com" className="hover:text-primary transition-colors">SliceAPI</Link></p>
+          {/* <p>Powered by <Link href="https://www.sliceapi.com" className="hover:text-primary transition-colors">SliceAPI</Link></p> */}
           {/* <p>Developed by <Link href="https://www.xpydr.xyz" className="hover:text-primary transition-colors">xpydr</Link></p> */}
         </div>
       </div>
