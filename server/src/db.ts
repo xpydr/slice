@@ -1,4 +1,4 @@
-import { PrismaClient, AuditLogAction, EntityType, LicenseStatus } from '@prisma/client';
+import { PrismaClient, AuditLogAction, EntityType, LicenseStatus, TenantStatus, SubscriptionStatus } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
 import { Product, Plan, License, Activation, AuditLog, Tenant, TenantApiKey, LaaSUser, UserLicense, TenantWithApiKey, TenantSession } from './types';
@@ -280,11 +280,11 @@ class PrismaDB {
         email: tenant.email,
         passwordHash: tenant.passwordHash,
         website: tenant.website,
-        status: (tenant.status || 'inactive').toUpperCase() as any,
+        status: (tenant.status || 'inactive').toUpperCase() as TenantStatus,
         emailVerified: tenant.emailVerified ?? false,
         emailVerifiedAt: tenant.emailVerifiedAt ?? undefined,
         metadata: tenant.metadata ?? undefined,
-      } as any, // Type assertion needed - Prisma types may need cache refresh
+      },
     });
     return prismaTenantToTenant(prismaTenant);
   }
@@ -311,7 +311,7 @@ class PrismaDB {
     if (!prismaTenant) return undefined;
     return {
       ...prismaTenantToTenant(prismaTenant),
-      passwordHash: (prismaTenant as any).passwordHash, // Type assertion needed - Prisma types may need cache refresh
+      passwordHash: prismaTenant.passwordHash,
     };
   }
 
@@ -702,7 +702,7 @@ class PrismaDB {
       where: { id: tenantId },
       data: {
         stripeSubscriptionId,
-        subscriptionStatus: subscriptionStatus ? subscriptionStatus.toUpperCase() as any : null,
+        subscriptionStatus: subscriptionStatus ? subscriptionStatus.toUpperCase() as SubscriptionStatus : null,
         currentPlanId,
       },
     });
