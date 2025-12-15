@@ -1,7 +1,7 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { db } from '../db';
 import { laasLicenseService } from '../services/laas-license-service';
-import { authenticateTenant, AuthenticatedRequest } from '../middleware/tenant-auth';
+import { authenticateTenant, authenticateTenantSession, AuthenticatedRequest } from '../middleware/tenant-auth';
 import {
   ApiResponse,
   CreateProductRequest,
@@ -12,7 +12,16 @@ import {
   CreateUserRequest,
   AssignLicenseRequest,
   LicenseUsage,
+  RegisterTenantRequest,
+  LoginRequest,
+  LoginResponse,
 } from '../types';
+import { hashPassword, verifyPassword } from '../services/password-service';
+import { createSession, getSessionByToken, revokeSession } from '../services/jwt-service';
+import { invalidateCacheByTags } from '../middleware/cache';
+import { generateCode, hashCode, verifyCode } from '../services/verification-code-service';
+import { sendVerificationCode } from '../services/email-service';
+import { VerifyEmailRequest } from '../types';
 
 async function adminRoutes(fastify: FastifyInstance) {
   // ========== TENANT MANAGEMENT (Platform Admin) ==========
@@ -31,12 +40,18 @@ async function adminRoutes(fastify: FastifyInstance) {
         });
       }
 
+      // For admin-created tenants, generate a temporary password hash
+      // In production, admin should set a password or send invitation
+      const tempPasswordHash = await hashPassword('temp-password-' + Date.now());
+      
       const tenant = await db.createTenant({
         name,
-        email,
+        email: email || `admin-${Date.now()}@example.com`, // Fallback if no email
         website,
-        status: 'active',
+        status: 'inactive',
+        emailVerified: false,
         metadata,
+        passwordHash: tempPasswordHash,
       });
 
       await db.createAuditLog({
@@ -152,14 +167,418 @@ async function adminRoutes(fastify: FastifyInstance) {
     }
   );
 
-  // ========== TENANT-SCOPED ROUTES (Require API Key) ==========
-  // All routes below require tenant authentication via API key
+  // ========== AUTHENTICATION ROUTES ==========
+  // Tenant registration and login endpoints
 
-  // Products (tenant-scoped)
+  // Register tenant (self-registration)
+  fastify.post<{ Body: RegisterTenantRequest }>('/auth/register', async (request: FastifyRequest<{ Body: RegisterTenantRequest }>, reply: FastifyReply) => {
+    try {
+      const { name, email, password, website, metadata } = request.body;
+
+      if (!name || !email || !password) {
+        return reply.code(400).send({
+          success: false,
+          error: 'Name, email, and password are required',
+        });
+      }
+
+      // Check if tenant with this email already exists
+      const existingTenant = await db.getTenantByEmail(email);
+      if (existingTenant) {
+        return reply.code(409).send({
+          success: false,
+          error: 'Tenant with this email already exists',
+        });
+      }
+
+      // Hash password
+      const passwordHash = await hashPassword(password);
+
+      // Create tenant with INACTIVE status
+      const tenant = await db.createTenant({
+        name,
+        email,
+        passwordHash,
+        website,
+        status: 'inactive',
+        emailVerified: false,
+        metadata,
+      });
+
+      await db.createAuditLog({
+        action: 'tenant.created',
+        entityType: 'tenant',
+        entityId: tenant.id,
+        metadata: { name, email },
+      });
+
+      // Generate and send verification code
+      try {
+        const code = generateCode();
+        const codeHash = await hashCode(code);
+
+        // Set expiration to 15 minutes from now
+        const expiresAt = new Date();
+        expiresAt.setMinutes(expiresAt.getMinutes() + 15);
+
+        // Store verification code
+        await db.createVerificationCode(tenant.id, codeHash, expiresAt);
+
+        // Send email
+        await sendVerificationCode(email, code);
+      } catch (emailError) {
+        // Log error but don't fail registration
+        console.error('Failed to send verification email during registration:', emailError);
+      }
+
+      return reply.code(201).send({
+        success: true,
+        data: tenant,
+      });
+    } catch (error) {
+      console.error('Register tenant error:', error);
+      return reply.code(500).send({
+        success: false,
+        error: 'Internal server error',
+      });
+    }
+  });
+
+  // Login tenant
+  fastify.post<{ Body: LoginRequest }>('/auth/login', async (request: FastifyRequest<{ Body: LoginRequest }>, reply: FastifyReply) => {
+    try {
+      const { email, password } = request.body;
+
+      if (!email || !password) {
+        return reply.code(400).send({
+          success: false,
+          error: 'Email and password are required',
+        });
+      }
+
+      // Get tenant by email (includes passwordHash for verification)
+      const tenantWithHash = await db.getTenantByEmail(email);
+      if (!tenantWithHash) {
+        return reply.code(401).send({
+          success: false,
+          error: 'Invalid email or password',
+        });
+      }
+
+      // Verify password
+      const isValidPassword = await verifyPassword(password, tenantWithHash.passwordHash);
+      if (!isValidPassword) {
+        return reply.code(401).send({
+          success: false,
+          error: 'Invalid email or password',
+        });
+      }
+
+      // Create session (generates JWT and stores in database)
+      const { token, session } = await createSession(tenantWithHash.id);
+
+      // Set HTTP-only cookie with JWT token
+      reply.setCookie('auth_token', token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production', // Only send over HTTPS in production
+        sameSite: 'lax', // CSRF protection
+        maxAge: 7 * 24 * 60 * 60, // 7 days in seconds
+        path: '/',
+      });
+
+      // Return tenant info (without passwordHash and without token in body)
+      const { passwordHash: _, ...tenant } = tenantWithHash;
+
+      // Check if email verification is required
+      const requiresVerification = !tenant.emailVerified;
+
+      return reply.send({
+        success: true,
+        data: {
+          tenant,
+          requiresVerification,
+        },
+      } as LoginResponse);
+    } catch (error) {
+      console.error('Login error:', error);
+      return reply.code(500).send({
+        success: false,
+        error: 'Internal server error',
+      });
+    }
+  });
+
+  // Get current authenticated tenant
+  fastify.get('/auth/me', { preHandler: authenticateTenantSession }, async (request: AuthenticatedRequest, reply: FastifyReply) => {
+    try {
+      if (!request.tenant) {
+        return reply.code(401).send({
+          success: false,
+          error: 'Not authenticated',
+        });
+      }
+
+      // Get full tenant details
+      const tenant = await db.getTenant(request.tenant.id);
+      if (!tenant) {
+        return reply.code(404).send({
+          success: false,
+          error: 'Tenant not found',
+        });
+      }
+
+      // Return tenant info (without passwordHash)
+      const { ...tenantWithoutHash } = tenant;
+
+      return reply.send({
+        success: true,
+        data: {
+          tenant: tenantWithoutHash,
+        },
+      });
+    } catch (error) {
+      console.error('Get current tenant error:', error);
+      return reply.code(500).send({
+        success: false,
+        error: 'Internal server error',
+      });
+    }
+  });
+
+  // Send verification code
+  fastify.post('/auth/send-verification-code', { preHandler: authenticateTenantSession }, async (request: AuthenticatedRequest, reply: FastifyReply) => {
+    try {
+      if (!request.tenant) {
+        return reply.code(401).send({
+          success: false,
+          error: 'Not authenticated',
+        });
+      }
+
+      // Get tenant details
+      const tenant = await db.getTenant(request.tenant.id);
+      if (!tenant) {
+        return reply.code(404).send({
+          success: false,
+          error: 'Tenant not found',
+        });
+      }
+
+      // Check if already verified
+      if (tenant.emailVerified) {
+        return reply.send({
+          success: true,
+          message: 'Email already verified',
+        });
+      }
+
+      // Generate 6-digit code
+      const code = generateCode();
+      const codeHash = await hashCode(code);
+
+      // Set expiration to 15 minutes from now
+      const expiresAt = new Date();
+      expiresAt.setMinutes(expiresAt.getMinutes() + 15);
+
+      // Store verification code
+      await db.createVerificationCode(request.tenant.id, codeHash, expiresAt);
+
+      // Send email
+      await sendVerificationCode(tenant.email, code);
+
+      return reply.send({
+        success: true,
+        message: 'Verification code sent',
+      });
+    } catch (error) {
+      console.error('Send verification code error:', error);
+      return reply.code(500).send({
+        success: false,
+        error: 'Internal server error',
+      });
+    }
+  });
+
+  // Verify email with code
+  fastify.post<{ Body: VerifyEmailRequest }>('/auth/verify-email', { preHandler: authenticateTenantSession }, async (request: FastifyRequest<{ Body: VerifyEmailRequest }>, reply: FastifyReply) => {
+    try {
+      const authRequest = request as AuthenticatedRequest;
+      if (!authRequest.tenant) {
+        return reply.code(401).send({
+          success: false,
+          error: 'Not authenticated',
+        });
+      }
+
+      const { code } = request.body;
+
+      if (!code || code.length !== 6 || !/^\d+$/.test(code)) {
+        return reply.code(400).send({
+          success: false,
+          error: 'Invalid code format. Code must be 6 digits',
+        });
+      }
+
+      // Get stored verification code
+      const storedCode = await db.getVerificationCode(authRequest.tenant.id);
+      if (!storedCode) {
+        return reply.code(400).send({
+          success: false,
+          error: 'No verification code found. Please request a new code',
+        });
+      }
+
+      // Check if code has expired
+      if (new Date() > storedCode.expiresAt) {
+        await db.deleteVerificationCode(authRequest.tenant.id);
+        return reply.code(400).send({
+          success: false,
+          error: 'Verification code has expired. Please request a new code',
+        });
+      }
+
+      // Verify code
+      const isValid = await verifyCode(code, storedCode.codeHash);
+      if (!isValid) {
+        return reply.code(400).send({
+          success: false,
+          error: 'Invalid verification code',
+        });
+      }
+
+      // Update tenant email verification status
+      await db.updateTenantEmailVerification(authRequest.tenant.id, true);
+
+      // Delete used verification code
+      await db.deleteVerificationCode(authRequest.tenant.id);
+
+      // Get updated tenant
+      const tenant = await db.getTenant(authRequest.tenant.id);
+
+      return reply.send({
+        success: true,
+        data: {
+          tenant,
+        },
+      });
+    } catch (error) {
+      console.error('Verify email error:', error);
+      return reply.code(500).send({
+        success: false,
+        error: 'Internal server error',
+      });
+    }
+  });
+
+  // Resend verification code
+  fastify.post('/auth/resend-verification-code', { preHandler: authenticateTenantSession }, async (request: AuthenticatedRequest, reply: FastifyReply) => {
+    try {
+      if (!request.tenant) {
+        return reply.code(401).send({
+          success: false,
+          error: 'Not authenticated',
+        });
+      }
+
+      // Get tenant details
+      const tenant = await db.getTenant(request.tenant.id);
+      if (!tenant) {
+        return reply.code(404).send({
+          success: false,
+          error: 'Tenant not found',
+        });
+      }
+
+      // Check if already verified
+      if (tenant.emailVerified) {
+        return reply.send({
+          success: true,
+          message: 'Email already verified',
+        });
+      }
+
+      // Delete existing code (if any)
+      await db.deleteVerificationCode(request.tenant.id);
+
+      // Generate new 6-digit code
+      const code = generateCode();
+      const codeHash = await hashCode(code);
+
+      // Set expiration to 15 minutes from now
+      const expiresAt = new Date();
+      expiresAt.setMinutes(expiresAt.getMinutes() + 15);
+
+      // Store verification code
+      await db.createVerificationCode(request.tenant.id, codeHash, expiresAt);
+
+      // Send email
+      await sendVerificationCode(tenant.email, code);
+
+      return reply.send({
+        success: true,
+        message: 'Verification code resent',
+      });
+    } catch (error) {
+      console.error('Resend verification code error:', error);
+      return reply.code(500).send({
+        success: false,
+        error: 'Internal server error',
+      });
+    }
+  });
+
+  // Logout tenant
+  fastify.post('/auth/logout', async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const token = request.cookies.auth_token;
+
+      if (token) {
+        // Get session from database
+        const session = await getSessionByToken(token);
+        
+        if (session) {
+          // Revoke session in database
+          await revokeSession(session.id);
+        }
+      }
+
+      // Clear cookie
+      reply.clearCookie('auth_token', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        path: '/',
+      });
+
+      return reply.send({
+        success: true,
+        message: 'Logged out successfully',
+      });
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Still clear the cookie even if there's an error
+      reply.clearCookie('auth_token', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        path: '/',
+      });
+      return reply.send({
+        success: true,
+        message: 'Logged out successfully',
+      });
+    }
+  });
+
+  // ========== TENANT-SCOPED ROUTES ==========
+  // Dashboard routes use JWT cookie auth (authenticateTenantSession)
+  // Tenant server routes use API key auth (authenticateTenant)
+
+  // Products (tenant-scoped) - Dashboard operations
   fastify.post<{ Body: CreateProductRequest }>(
     '/products',
     {
-      preHandler: [authenticateTenant],
+      preHandler: [authenticateTenantSession],
     },
     async (request: FastifyRequest<{ Body: CreateProductRequest }>, reply: FastifyReply) => {
       try {
@@ -196,6 +615,9 @@ async function adminRoutes(fastify: FastifyInstance) {
           metadata: { name },
         });
 
+        // Invalidate cache
+        await invalidateCacheByTags([`tenant:${tenant.id}:products`]);
+
         return reply.code(201).send({
           success: true,
           data: product,
@@ -213,7 +635,7 @@ async function adminRoutes(fastify: FastifyInstance) {
   fastify.get(
     '/products',
     {
-      preHandler: [authenticateTenant],
+      preHandler: [authenticateTenantSession],
     },
     async (request: FastifyRequest, reply: FastifyReply) => {
       try {
@@ -245,7 +667,7 @@ async function adminRoutes(fastify: FastifyInstance) {
   fastify.get<{ Params: { id: string } }>(
     '/products/:id',
     {
-      preHandler: [authenticateTenant],
+      preHandler: [authenticateTenantSession],
     },
     async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
       try {
@@ -289,11 +711,11 @@ async function adminRoutes(fastify: FastifyInstance) {
     }
   );
 
-  // Plans (tenant-scoped)
+  // Plans (tenant-scoped) - Dashboard operations
   fastify.post<{ Body: CreatePlanRequest }>(
     '/plans',
     {
-      preHandler: [authenticateTenant],
+      preHandler: [authenticateTenantSession],
     },
     async (request: FastifyRequest<{ Body: CreatePlanRequest }>, reply: FastifyReply) => {
       try {
@@ -307,7 +729,7 @@ async function adminRoutes(fastify: FastifyInstance) {
           });
         }
 
-        const { productId, name, description, maxSeats, maxDevices, expiresInDays, features } = request.body;
+        const { productId, name, description, maxSeats, expiresInDays, features } = request.body;
 
         if (!productId || !name) {
           return reply.code(400).send({
@@ -337,7 +759,6 @@ async function adminRoutes(fastify: FastifyInstance) {
           name,
           description,
           maxSeats,
-          maxDevices,
           expiresInDays,
           features,
         });
@@ -349,6 +770,9 @@ async function adminRoutes(fastify: FastifyInstance) {
           entityId: plan.id,
           metadata: { productId, name },
         });
+
+        // Invalidate cache
+        await invalidateCacheByTags([`tenant:${tenant.id}:plans`, `tenant:${tenant.id}:products`]);
 
         return reply.code(201).send({
           success: true,
@@ -367,7 +791,7 @@ async function adminRoutes(fastify: FastifyInstance) {
   fastify.get<{ Querystring: { productId?: string } }>(
     '/plans',
     {
-      preHandler: [authenticateTenant],
+      preHandler: [authenticateTenantSession],
     },
     async (request: FastifyRequest<{ Querystring: { productId?: string } }>, reply: FastifyReply) => {
       try {
@@ -420,7 +844,7 @@ async function adminRoutes(fastify: FastifyInstance) {
   fastify.get<{ Params: { id: string } }>(
     '/plans/:id',
     {
-      preHandler: [authenticateTenant],
+      preHandler: [authenticateTenantSession],
     },
     async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
       try {
@@ -465,11 +889,11 @@ async function adminRoutes(fastify: FastifyInstance) {
     }
   );
 
-  // Licenses (tenant-scoped)
+  // Licenses (tenant-scoped) - Dashboard operations
   fastify.post<{ Body: CreateLicenseRequest }>(
     '/licenses',
     {
-      preHandler: [authenticateTenant],
+      preHandler: [authenticateTenantSession],
     },
     async (request: FastifyRequest<{ Body: CreateLicenseRequest }>, reply: FastifyReply) => {
       try {
@@ -518,6 +942,9 @@ async function adminRoutes(fastify: FastifyInstance) {
           });
         }
 
+        // Invalidate cache
+        await invalidateCacheByTags([`tenant:${tenant.id}:licenses`]);
+
         return reply.code(201).send({
           success: true,
           data: license,
@@ -535,7 +962,7 @@ async function adminRoutes(fastify: FastifyInstance) {
   fastify.get<{ Querystring: { planId?: string } }>(
     '/licenses',
     {
-      preHandler: [authenticateTenant],
+      preHandler: [authenticateTenantSession],
     },
     async (request: FastifyRequest<{ Querystring: { planId?: string } }>, reply: FastifyReply) => {
       try {
@@ -594,7 +1021,7 @@ async function adminRoutes(fastify: FastifyInstance) {
   fastify.get<{ Params: { id: string } }>(
     '/licenses/:id',
     {
-      preHandler: [authenticateTenant],
+      preHandler: [authenticateTenantSession],
     },
     async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
       try {
@@ -684,11 +1111,11 @@ async function adminRoutes(fastify: FastifyInstance) {
     }
   );
 
-  // Assign license to user
+  // Assign license to user - Tenant server operation (uses API key)
   fastify.post<{ Params: { id: string }; Body: AssignLicenseRequest }>(
     '/licenses/:id/assign',
     {
-      preHandler: [authenticateTenant],
+      preHandler: [authenticateTenant], // Bearer token for tenant server
     },
     async (request: FastifyRequest<{ Params: { id: string }; Body: AssignLicenseRequest }>, reply: FastifyReply) => {
       try {
@@ -738,11 +1165,11 @@ async function adminRoutes(fastify: FastifyInstance) {
     }
   );
 
-  // Users (tenant-scoped)
+  // Users (tenant-scoped) - Tenant server operation (uses API key)
   fastify.post<{ Body: CreateUserRequest }>(
     '/users',
     {
-      preHandler: [authenticateTenant],
+      preHandler: [authenticateTenant], // Bearer token for tenant server
     },
     async (request: FastifyRequest<{ Body: CreateUserRequest }>, reply: FastifyReply) => {
       try {
@@ -790,6 +1217,9 @@ async function adminRoutes(fastify: FastifyInstance) {
           metadata: { externalId },
         });
 
+        // Invalidate cache
+        await invalidateCacheByTags([`tenant:${tenant.id}:users`]);
+
         return reply.code(201).send({
           success: true,
           data: user,
@@ -807,7 +1237,7 @@ async function adminRoutes(fastify: FastifyInstance) {
   fastify.get<{ Querystring: { externalId?: string } }>(
     '/users',
     {
-      preHandler: [authenticateTenant],
+      preHandler: [authenticateTenantSession], // Dashboard operation
     },
     async (request: FastifyRequest<{ Querystring: { externalId?: string } }>, reply: FastifyReply) => {
       try {
@@ -845,11 +1275,11 @@ async function adminRoutes(fastify: FastifyInstance) {
     }
   );
 
-  // Audit Logs (tenant-scoped)
+  // Audit Logs (tenant-scoped) - Dashboard operation
   fastify.get<{ Querystring: { entityType?: string; entityId?: string } }>(
     '/audit-logs',
     {
-      preHandler: [authenticateTenant],
+      preHandler: [authenticateTenantSession],
     },
     async (request: FastifyRequest<{ Querystring: { entityType?: string; entityId?: string } }>, reply: FastifyReply) => {
       try {

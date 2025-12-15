@@ -6,7 +6,7 @@ import { authenticateTenant, AuthenticatedRequest } from '../middleware/tenant-a
 async function validateRoutes(fastify: FastifyInstance) {
   // Validate user license - main LaaS endpoint
   // Requires: Authorization header with API key
-  // Body: { userId, deviceId?, deviceInfo? }
+  // Body: { userId }
   fastify.post<{ Body: ValidateLicenseRequest }>(
     '/validate',
     {
@@ -24,7 +24,7 @@ async function validateRoutes(fastify: FastifyInstance) {
           });
         }
 
-        const { userId, deviceId, deviceInfo }: ValidateLicenseRequest = request.body;
+        const { userId }: ValidateLicenseRequest = request.body;
 
         if (!userId) {
           return reply.code(400).send({
@@ -35,9 +35,7 @@ async function validateRoutes(fastify: FastifyInstance) {
 
         const result = await laasLicenseService.validateUserLicense(
           tenant.id,
-          userId,
-          deviceId,
-          deviceInfo
+          userId
         );
 
         return reply.send({
