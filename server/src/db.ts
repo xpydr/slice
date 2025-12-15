@@ -79,6 +79,10 @@ function prismaTenantToTenant(prismaTenant: any): Tenant {
     emailVerified: prismaTenant.emailVerified || false,
     emailVerifiedAt: prismaTenant.emailVerifiedAt || undefined,
     metadata: prismaTenant.metadata as Record<string, any> | undefined,
+    stripeCustomerId: prismaTenant.stripeCustomerId || undefined,
+    stripeSubscriptionId: prismaTenant.stripeSubscriptionId || undefined,
+    subscriptionStatus: prismaTenant.subscriptionStatus ? prismaTenant.subscriptionStatus.toLowerCase() as Tenant['subscriptionStatus'] : undefined,
+    currentPlanId: prismaTenant.currentPlanId || undefined,
     createdAt: prismaTenant.createdAt,
     updatedAt: prismaTenant.updatedAt,
   };
@@ -297,18 +301,7 @@ class PrismaDB {
     const prismaTenants = await prisma.tenant.findMany({
       orderBy: { createdAt: 'desc' },
     });
-    return prismaTenants.map(t => ({
-      id: t.id,
-      name: t.name,
-      email: t.email || '', // Email is now required, fallback to empty string if null
-      website: t.website || undefined,
-      status: t.status.toLowerCase() as Tenant['status'],
-      emailVerified: t.emailVerified || false,
-      emailVerifiedAt: t.emailVerifiedAt || undefined,
-      metadata: t.metadata as Record<string, any> | undefined,
-      createdAt: t.createdAt,
-      updatedAt: t.updatedAt,
-    }));
+    return prismaTenants.map(t => prismaTenantToTenant(t));
   }
 
   async getTenantByEmail(email: string): Promise<(Tenant & { passwordHash: string }) | undefined> {
@@ -688,6 +681,47 @@ class PrismaDB {
       },
     });
     return result.count;
+  }
+
+  // ========== STRIPE SUBSCRIPTION METHODS ==========
+
+  async updateTenantStripeCustomer(tenantId: string, stripeCustomerId: string): Promise<void> {
+    await prisma.tenant.update({
+      where: { id: tenantId },
+      data: { stripeCustomerId },
+    });
+  }
+
+  async updateTenantSubscription(
+    tenantId: string,
+    stripeSubscriptionId: string | null,
+    subscriptionStatus: 'active' | 'past_due' | 'canceled' | 'unpaid' | 'trialing' | 'incomplete' | 'incomplete_expired' | null,
+    currentPlanId: string | null
+  ): Promise<void> {
+    await prisma.tenant.update({
+      where: { id: tenantId },
+      data: {
+        stripeSubscriptionId,
+        subscriptionStatus: subscriptionStatus ? subscriptionStatus.toUpperCase() as any : null,
+        currentPlanId,
+      },
+    });
+  }
+
+  async getTenantByStripeCustomerId(stripeCustomerId: string): Promise<Tenant | undefined> {
+    const prismaTenant = await prisma.tenant.findUnique({
+      where: { stripeCustomerId },
+    });
+    if (!prismaTenant) return undefined;
+    return prismaTenantToTenant(prismaTenant);
+  }
+
+  async getTenantByStripeSubscriptionId(stripeSubscriptionId: string): Promise<Tenant | undefined> {
+    const prismaTenant = await prisma.tenant.findFirst({
+      where: { stripeSubscriptionId },
+    });
+    if (!prismaTenant) return undefined;
+    return prismaTenantToTenant(prismaTenant);
   }
 }
 
