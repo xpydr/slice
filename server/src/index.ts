@@ -1,6 +1,7 @@
 import Fastify from 'fastify';
 import validateRouter from './routes/validate';
 import adminRouter from './routes/admin';
+import billingRouter from './routes/billing';
 import cors from '@fastify/cors';
 import cookie from '@fastify/cookie';
 import rateLimit from '@fastify/rate-limit';
@@ -69,6 +70,7 @@ fastify.get('/health', async () => {
 // API Routes
 fastify.register(validateRouter, { prefix: '/api/v1/validate' });
 fastify.register(adminRouter, { prefix: '/api/v1/admin' });
+fastify.register(billingRouter, { prefix: '/api/v1/billing' });
 
 // Start server
 const start = async () => {
