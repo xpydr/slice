@@ -167,7 +167,7 @@ export default function HomePage() {
           <CardHeader className="text-center space-y-4">
             <CardTitle className="text-3xl">Ready to get started?</CardTitle>
             <CardDescription className="text-lg">
-              Join thousands of developers using Slice to manage their software licenses.
+              Join thousands of developers using SliceAPI to manage their software licenses.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex justify-center">
