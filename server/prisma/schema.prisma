@@ -8,17 +8,22 @@ datasource db {
 
 // Tenants are businesses/customers using the LaaS platform
 model Tenant {
-  id             String       @id @default(uuid())
-  name           String
-  email          String
-  passwordHash   String
-  website        String?
-  status         TenantStatus @default(INACTIVE)
-  emailVerified  Boolean      @default(false)
-  emailVerifiedAt DateTime?
-  metadata       Json?
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  id                 String            @id @default(uuid())
+  name               String
+  email              String
+  passwordHash       String
+  website            String?
+  status             TenantStatus      @default(INACTIVE)
+  emailVerified      Boolean           @default(false)
+  emailVerifiedAt    DateTime?
+  metadata           Json?
+  // Stripe subscription fields
+  stripeCustomerId   String?           @unique
+  stripeSubscriptionId String?
+  subscriptionStatus SubscriptionStatus?
+  currentPlanId      String?           // Stripe Price ID
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
 
   apiKeys                TenantApiKey[]
   sessions               TenantSession[]
@@ -28,6 +33,8 @@ model Tenant {
   emailVerificationCodes EmailVerificationCode[]
 
   @@index([status])
+  @@index([stripeCustomerId])
+  @@index([subscriptionStatus])
   @@map("tenants")
 }
 
@@ -35,6 +42,16 @@ enum TenantStatus {
   ACTIVE
   SUSPENDED
   INACTIVE
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  UNPAID
+  TRIALING
+  INCOMPLETE
+  INCOMPLETE_EXPIRED
 }
 
 // API keys for tenant authentication
