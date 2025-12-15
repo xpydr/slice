@@ -3,7 +3,11 @@ import validateRouter from './routes/validate';
 import adminRouter from './routes/admin';
 import cors from '@fastify/cors';
 import cookie from '@fastify/cookie';
+import rateLimit from '@fastify/rate-limit';
 import dotenv from 'dotenv';
+import { rateLimitMiddleware } from './middleware/rate-limit';
+import { cacheMiddleware } from './middleware/cache';
+import { getRedisStatus, isRedisAvailable } from './lib/redis';
 
 dotenv.config();
 
@@ -23,13 +27,43 @@ fastify.register(cookie, {
 fastify.register(cors, {
   origin: process.env.CORS_ORIGIN || '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-RateLimit-Limit', 'X-RateLimit-Remaining', 'X-RateLimit-Reset'],
   credentials: true, // Allow cookies to be sent
+});
+
+// Register rate limiting plugin (we'll use custom middleware instead)
+// This is registered but we use custom middleware for per-tenant rate limiting
+fastify.register(rateLimit, {
+  max: 1000, // High limit, actual limiting done by custom middleware
+  timeWindow: '1 minute',
+  skipOnError: true,
+});
+
+// Add rate limiting hook (runs after authentication)
+fastify.addHook('onRequest', async (request, reply) => {
+  await rateLimitMiddleware(request, reply);
+});
+
+// Add caching hook for GET requests (runs after authentication)
+fastify.addHook('onRequest', async (request, reply) => {
+  await cacheMiddleware(request, reply);
 });
 
 // Health check
 fastify.get('/health', async () => {
-  return { status: 'ok', timestamp: new Date().toISOString() };
+  const redisStatus = getRedisStatus();
+  return {
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    cache: {
+      type: isRedisAvailable() ? 'redis' : 'memory',
+      redis: {
+        connected: redisStatus.connected,
+        host: redisStatus.host,
+        port: redisStatus.port,
+      },
+    },
+  };
 });
 
 // API Routes
