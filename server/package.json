@@ -23,6 +23,7 @@
     "ioredis": "^5.3.2",
     "jsonwebtoken": "^9.0.2",
     "resend": "^4.0.0",
+    "stripe": "^20.0.0",
     "uuid": "^9.0.0"
   },
   "devDependencies": {
