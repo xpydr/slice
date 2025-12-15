@@ -23,6 +23,11 @@ export interface Tenant {
   emailVerified: boolean;
   emailVerifiedAt?: Date;
   metadata?: Record<string, any>;
+  // Stripe subscription fields
+  stripeCustomerId?: string;
+  stripeSubscriptionId?: string;
+  subscriptionStatus?: SubscriptionStatus;
+  currentPlanId?: string; // Stripe Price ID
   createdAt: Date;
   updatedAt: Date;
 }
@@ -247,4 +252,34 @@ export interface LicenseUsage {
   activations: Activation[];
   totalActivations: number;
   activeSeats: number;
+}
+
+// Stripe Subscription Types
+
+export type SubscriptionStatus = 'active' | 'past_due' | 'canceled' | 'unpaid' | 'trialing' | 'incomplete' | 'incomplete_expired';
+
+export interface Subscription {
+  id: string;
+  status: SubscriptionStatus;
+  currentPeriodStart: Date;
+  currentPeriodEnd: Date;
+  cancelAtPeriodEnd: boolean;
+  canceledAt?: Date;
+  planId: string; // Stripe Price ID
+  planName?: string;
+}
+
+// Billing API Request/Response Types
+
+export interface CreateCheckoutSessionRequest {
+  priceId: string;
+}
+
+export interface CreateCheckoutSessionResponse {
+  clientSecret: string;
+  sessionId: string;
+}
+
+export interface CancelSubscriptionRequest {
+  subscriptionId: string;
 }
