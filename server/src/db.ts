@@ -36,7 +36,6 @@ function prismaPlanToPlan(prismaPlan: any): Plan {
     name: prismaPlan.name,
     description: prismaPlan.description || undefined,
     maxSeats: prismaPlan.maxSeats || undefined,
-    maxDevices: prismaPlan.maxDevices || undefined,
     expiresInDays: prismaPlan.expiresInDays || undefined,
     features: prismaPlan.features as string[] | undefined,
     createdAt: prismaPlan.createdAt,
@@ -51,7 +50,6 @@ function prismaLicenseToLicense(prismaLicense: any): License {
     planId: prismaLicense.planId,
     status: prismaLicense.status.toLowerCase() as License['status'],
     maxSeats: prismaLicense.maxSeats || undefined,
-    maxDevices: prismaLicense.maxDevices || undefined,
     expiresAt: prismaLicense.expiresAt || undefined,
     features: prismaLicense.features as string[] | undefined,
     createdBy: prismaLicense.createdBy || undefined,
@@ -65,8 +63,6 @@ function prismaActivationToActivation(prismaActivation: any): Activation {
     id: prismaActivation.id,
     userId: prismaActivation.userId,
     licenseId: prismaActivation.licenseId,
-    deviceId: prismaActivation.deviceId || undefined,
-    deviceInfo: prismaActivation.deviceInfo as Record<string, any> | undefined,
     activatedAt: prismaActivation.activatedAt,
     lastCheckedAt: prismaActivation.lastCheckedAt || undefined,
     metadata: prismaActivation.metadata as Record<string, any> | undefined,
@@ -80,6 +76,8 @@ function prismaTenantToTenant(prismaTenant: any): Tenant {
     email: prismaTenant.email || '', // Email is now required, fallback to empty string if null
     website: prismaTenant.website || undefined,
     status: prismaTenant.status.toLowerCase() as Tenant['status'],
+    emailVerified: prismaTenant.emailVerified || false,
+    emailVerifiedAt: prismaTenant.emailVerifiedAt || undefined,
     metadata: prismaTenant.metadata as Record<string, any> | undefined,
     createdAt: prismaTenant.createdAt,
     updatedAt: prismaTenant.updatedAt,
@@ -137,7 +135,6 @@ class PrismaDB {
         name: plan.name,
         description: plan.description,
         maxSeats: plan.maxSeats,
-        maxDevices: plan.maxDevices,
         expiresInDays: plan.expiresInDays,
         features: plan.features ?? undefined,
       },
@@ -183,7 +180,6 @@ class PrismaDB {
       updateData.status = toPrismaLicenseStatus(updates.status);
     }
     if (updates.maxSeats !== undefined) updateData.maxSeats = updates.maxSeats;
-    if (updates.maxDevices !== undefined) updateData.maxDevices = updates.maxDevices;
     if (updates.expiresAt !== undefined) updateData.expiresAt = updates.expiresAt;
     if (updates.features !== undefined) updateData.features = updates.features ?? undefined;
     if (updates.createdBy !== undefined) updateData.createdBy = updates.createdBy;
@@ -281,6 +277,8 @@ class PrismaDB {
         passwordHash: tenant.passwordHash,
         website: tenant.website,
         status: (tenant.status || 'inactive').toUpperCase() as any,
+        emailVerified: tenant.emailVerified ?? false,
+        emailVerifiedAt: tenant.emailVerifiedAt ?? undefined,
         metadata: tenant.metadata ?? undefined,
       } as any, // Type assertion needed - Prisma types may need cache refresh
     });
@@ -305,6 +303,8 @@ class PrismaDB {
       email: t.email || '', // Email is now required, fallback to empty string if null
       website: t.website || undefined,
       status: t.status.toLowerCase() as Tenant['status'],
+      emailVerified: t.emailVerified || false,
+      emailVerifiedAt: t.emailVerifiedAt || undefined,
       metadata: t.metadata as Record<string, any> | undefined,
       createdAt: t.createdAt,
       updatedAt: t.updatedAt,
@@ -342,6 +342,8 @@ class PrismaDB {
       email: prismaApiKey.tenant.email || '', // Email is now required, fallback to empty string if null
       website: prismaApiKey.tenant.website || undefined,
       status: prismaApiKey.tenant.status.toLowerCase() as Tenant['status'],
+      emailVerified: prismaApiKey.tenant.emailVerified || false,
+      emailVerifiedAt: prismaApiKey.tenant.emailVerifiedAt || undefined,
       metadata: prismaApiKey.tenant.metadata as Record<string, any> | undefined,
       createdAt: prismaApiKey.tenant.createdAt,
       updatedAt: prismaApiKey.tenant.updatedAt,
@@ -441,8 +443,6 @@ class PrismaDB {
       id: a.id,
       userId: a.userId,
       licenseId: a.licenseId,
-      deviceId: a.deviceId || undefined,
-      deviceInfo: a.deviceInfo as Record<string, any> | undefined,
       activatedAt: a.activatedAt,
       lastCheckedAt: a.lastCheckedAt || undefined,
       metadata: a.metadata as Record<string, any> | undefined,
@@ -513,7 +513,6 @@ class PrismaDB {
         planId: license.planId,
         status: toPrismaLicenseStatus(license.status),
         maxSeats: license.maxSeats,
-        maxDevices: license.maxDevices,
         expiresAt: license.expiresAt,
         features: license.features ?? undefined,
         createdBy: license.createdBy,
@@ -529,8 +528,6 @@ class PrismaDB {
       data: {
         userId: activation.userId,
         licenseId: activation.licenseId,
-        deviceId: activation.deviceId,
-        deviceInfo: activation.deviceInfo ?? undefined,
         metadata: activation.metadata ?? undefined,
         lastCheckedAt: new Date(),
       },
@@ -547,8 +544,6 @@ class PrismaDB {
       id: a.id,
       userId: a.userId,
       licenseId: a.licenseId,
-      deviceId: a.deviceId || undefined,
-      deviceInfo: a.deviceInfo as Record<string, any> | undefined,
       activatedAt: a.activatedAt,
       lastCheckedAt: a.lastCheckedAt || undefined,
       metadata: a.metadata as Record<string, any> | undefined,
@@ -558,8 +553,6 @@ class PrismaDB {
   async updateActivation(id: string, updates: Partial<Activation>): Promise<Activation | undefined> {
     const updateData: any = {};
 
-    if (updates.deviceId !== undefined) updateData.deviceId = updates.deviceId;
-    if (updates.deviceInfo !== undefined) updateData.deviceInfo = updates.deviceInfo ?? undefined;
     if (updates.lastCheckedAt !== undefined) updateData.lastCheckedAt = updates.lastCheckedAt;
     if (updates.metadata !== undefined) updateData.metadata = updates.metadata ?? undefined;
 
@@ -635,6 +628,63 @@ class PrismaDB {
           { expiresAt: { lt: new Date() } },
           { revokedAt: { not: null } },
         ],
+      },
+    });
+    return result.count;
+  }
+
+  // ========== EMAIL VERIFICATION METHODS ==========
+
+  async updateTenantEmailVerification(tenantId: string, verified: boolean): Promise<void> {
+    await prisma.tenant.update({
+      where: { id: tenantId },
+      data: {
+        emailVerified: verified,
+        emailVerifiedAt: verified ? new Date() : null,
+      },
+    });
+  }
+
+  async createVerificationCode(tenantId: string, codeHash: string, expiresAt: Date): Promise<void> {
+    // Delete any existing verification codes for this tenant first
+    await prisma.emailVerificationCode.deleteMany({
+      where: { tenantId },
+    });
+
+    // Create new verification code
+    await prisma.emailVerificationCode.create({
+      data: {
+        tenantId,
+        codeHash,
+        expiresAt,
+      },
+    });
+  }
+
+  async getVerificationCode(tenantId: string): Promise<{ codeHash: string; expiresAt: Date } | undefined> {
+    const code = await prisma.emailVerificationCode.findFirst({
+      where: { tenantId },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (!code) return undefined;
+
+    return {
+      codeHash: code.codeHash,
+      expiresAt: code.expiresAt,
+    };
+  }
+
+  async deleteVerificationCode(tenantId: string): Promise<void> {
+    await prisma.emailVerificationCode.deleteMany({
+      where: { tenantId },
+    });
+  }
+
+  async deleteExpiredVerificationCodes(): Promise<number> {
+    const result = await prisma.emailVerificationCode.deleteMany({
+      where: {
+        expiresAt: { lt: new Date() },
       },
     });
     return result.count;
