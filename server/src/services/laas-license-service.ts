@@ -8,9 +8,7 @@ export class LaaSLicenseService {
    */
   async validateUserLicense(
     tenantId: string,
-    userId: string, // Customer's internal user ID
-    deviceId?: string,
-    deviceInfo?: Record<string, any>
+    userId: string // Customer's internal user ID
   ): Promise<ValidateLicenseResponse> {
     // Get or create user
     let user = await db.getUserByExternalId(tenantId, userId);
@@ -81,36 +79,14 @@ export class LaaSLicenseService {
       }
     }
 
-    // Check device limits
-    if (deviceId && activeLicense.maxDevices) {
-      const uniqueDevices = new Set(
-        existingActivations
-          .map(a => a.deviceId)
-          .filter((id): id is string => !!id)
-      ).size;
-
-      if (uniqueDevices >= activeLicense.maxDevices) {
-        await db.createAuditLog({
-          tenantId,
-          action: 'license.validated',
-          entityType: 'license',
-          entityId: activeLicense.id,
-          metadata: { result: 'exceeded_devices', userId, deviceId },
-        });
-        return { valid: false, reason: 'exceeded_devices' };
-      }
-    }
-
     // Find or create activation
-    let activation = existingActivations.find(a => a.deviceId === deviceId);
+    let activation = existingActivations[0];
     
     if (!activation) {
       // Create new activation
       activation = await db.createActivation({
         userId: user.id,
         licenseId: activeLicense.id,
-        deviceId,
-        deviceInfo,
       });
 
       await db.createAuditLog({
@@ -118,14 +94,12 @@ export class LaaSLicenseService {
         action: 'license.activated',
         entityType: 'activation',
         entityId: activation.id,
-        metadata: { licenseId: activeLicense.id, userId, deviceId },
+        metadata: { licenseId: activeLicense.id, userId },
       });
     } else {
       // Update last checked time
       const updated = await db.updateActivation(activation.id, {
         lastCheckedAt: new Date(),
-        deviceId: deviceId || activation.deviceId,
-        deviceInfo: deviceInfo || activation.deviceInfo,
       });
       if (updated) {
         activation = updated;
@@ -225,7 +199,6 @@ export class LaaSLicenseService {
       planId: plan.id,
       status: 'active',
       maxSeats: plan.maxSeats,
-      maxDevices: plan.maxDevices,
       expiresAt,
       features: plan.features ? [...plan.features] : undefined,
       createdBy,
@@ -303,18 +276,12 @@ export class LaaSLicenseService {
     const activations = await db.getActivationsByLicense(licenseId);
 
     const uniqueSeats = new Set(activations.map(a => a.userId)).size;
-    const uniqueDevices = new Set(
-      activations
-        .map(a => a.deviceId)
-        .filter((id): id is string => !!id)
-    ).size;
 
     return {
       license,
       activations,
       totalActivations: activations.length,
       activeSeats: uniqueSeats,
-      activeDevices: uniqueDevices,
     };
   }
 }
