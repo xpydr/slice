@@ -20,6 +20,8 @@ export interface Tenant {
   email: string; // Required for login
   website?: string;
   status: 'active' | 'suspended' | 'inactive';
+  emailVerified: boolean;
+  emailVerifiedAt?: Date;
   metadata?: Record<string, any>;
   createdAt: Date;
   updatedAt: Date;
@@ -67,7 +69,6 @@ export interface Plan {
   description?: string;
   // License configuration
   maxSeats?: number; // undefined = unlimited
-  maxDevices?: number; // undefined = unlimited
   expiresInDays?: number; // undefined = never expires
   features?: string[]; // feature flags
   createdAt: Date;
@@ -84,7 +85,6 @@ export interface License {
   status: LicenseStatus;
   // Configuration from plan (snapshot at creation)
   maxSeats?: number;
-  maxDevices?: number;
   expiresAt?: Date;
   features?: string[];
   // Metadata
@@ -107,8 +107,6 @@ export interface Activation {
   id: string;
   userId: string;
   licenseId: string;
-  deviceId?: string;
-  deviceInfo?: Record<string, any>;
   activatedAt: Date;
   lastCheckedAt?: Date;
   metadata?: Record<string, any>;
@@ -148,14 +146,12 @@ export interface AuditLog {
 // New LaaS validation request (uses API key + userId)
 export interface ValidateLicenseRequest {
   userId: string; // Customer's internal user ID
-  deviceId?: string;
-  deviceInfo?: Record<string, any>;
 }
 
 // Validation response
 export type ValidateLicenseResponse = 
   | { valid: true; license: License; activation?: Activation; features?: string[] }
-  | { valid: false; reason: 'expired' | 'revoked' | 'suspended' | 'exceeded_seats' | 'exceeded_devices' | 'no_license' | 'user_not_found' };
+  | { valid: false; reason: 'expired' | 'revoked' | 'suspended' | 'exceeded_seats' | 'no_license' | 'user_not_found' };
 
 // Tenant management requests
 export interface CreateTenantRequest {
@@ -186,8 +182,24 @@ export interface LoginResponse {
   data?: {
     tenant: Tenant;
     token?: string; // Optional, deprecated - token is now in HTTP-only cookie
+    requiresVerification?: boolean; // True if email verification is required
   };
   error?: string;
+}
+
+// Email verification request
+export interface VerifyEmailRequest {
+  code: string;
+}
+
+// Email verification response
+export interface VerifyEmailResponse {
+  success: boolean;
+}
+
+// Send verification code response
+export interface SendVerificationCodeResponse {
+  success: boolean;
 }
 
 export interface CreateApiKeyRequest {
@@ -220,7 +232,6 @@ export interface CreatePlanRequest {
   name: string;
   description?: string;
   maxSeats?: number;
-  maxDevices?: number;
   expiresInDays?: number;
   features?: string[];
 }
@@ -236,5 +247,4 @@ export interface LicenseUsage {
   activations: Activation[];
   totalActivations: number;
   activeSeats: number;
-  activeDevices: number;
 }
