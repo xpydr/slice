@@ -559,3 +559,84 @@ export async function getAuditLogs(
   }
 }
 
+// ========== BILLING API ==========
+
+export interface Subscription {
+  id: string;
+  status: 'active' | 'past_due' | 'canceled' | 'unpaid' | 'trialing' | 'incomplete' | 'incomplete_expired';
+  currentPeriodStart: string;
+  currentPeriodEnd: string;
+  cancelAtPeriodEnd: boolean;
+  canceledAt?: string;
+  planId: string;
+  planName?: string;
+}
+
+export interface CreateCheckoutSessionRequest {
+  priceId: string;
+}
+
+export interface CreateCheckoutSessionResponse {
+  clientSecret: string;
+  sessionId: string;
+}
+
+const BILLING_API_BASE_URL = 'http://localhost:3001/api/v1/billing';
+
+export async function createCheckoutSession(
+  priceId: string
+): Promise<ApiResponse<CreateCheckoutSessionResponse>> {
+  try {
+    const response = await fetch(`${BILLING_API_BASE_URL}/create-checkout-session`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+      body: JSON.stringify({ priceId }),
+    });
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Network error occurred',
+    }
+  }
+}
+
+export async function getSubscription(): Promise<ApiResponse<Subscription | null>> {
+  try {
+    const response = await fetch(`${BILLING_API_BASE_URL}/subscription`, {
+      method: 'GET',
+      credentials: 'include',
+    });
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Network error occurred',
+    }
+  }
+}
+
+export async function cancelSubscription(): Promise<ApiResponse<{ message: string; cancelAtPeriodEnd: boolean }>> {
+  try {
+    const response = await fetch(`${BILLING_API_BASE_URL}/cancel-subscription`, {
+      method: 'POST',
+      credentials: 'include',
+    });
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Network error occurred',
+    }
+  }
+}
+
