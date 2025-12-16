@@ -1,12 +1,20 @@
-import { Metadata } from 'next'
+'use client'
+
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Check } from 'lucide-react'
+import { useAuth } from '@/lib/auth'
 
-export const metadata: Metadata = {
-  title: 'Pricing',
-  description: 'Choose the perfect plan for your license management needs. Flexible pricing for businesses of all sizes.',
+// Map plans to Stripe Price IDs (from environment variables or placeholder)
+const getPriceId = (planName: string): string | null => {
+  const priceMap: Record<string, string> = {
+    'Starter': process.env.NEXT_PUBLIC_STRIPE_PRICE_STARTER || 'price_placeholder_starter',
+    'Professional': process.env.NEXT_PUBLIC_STRIPE_PRICE_PROFESSIONAL || 'price_placeholder_professional',
+    'Enterprise': process.env.NEXT_PUBLIC_STRIPE_PRICE_ENTERPRISE || 'price_placeholder_enterprise',
+  }
+  return priceMap[planName] || null
 }
 
 const plans = [
@@ -65,6 +73,30 @@ const plans = [
 ]
 
 export default function PricingPage() {
+  const router = useRouter()
+  const { isAuthenticated } = useAuth()
+
+  const handlePlanClick = (planName: string) => {
+    if (planName === 'Enterprise') {
+      router.push('/contact')
+      return
+    }
+
+    const priceId = getPriceId(planName)
+    if (!priceId) {
+      console.error(`No price ID found for plan: ${planName}`)
+      return
+    }
+
+    // If not authenticated, redirect to signup first
+    if (!isAuthenticated) {
+      router.push(`/signup?redirect=/checkout?priceId=${encodeURIComponent(priceId)}`)
+      return
+    }
+
+    // Navigate to checkout with priceId
+    router.push(`/checkout?priceId=${encodeURIComponent(priceId)}`)
+  }
   return (
     <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-24">
       <div className="text-center space-y-4 mb-16">
@@ -109,14 +141,13 @@ export default function PricingPage() {
                   </li>
                 ))}
               </ul>
-              <Link href={plan.name === 'Enterprise' ? '/contact' : '/signup'} className="block">
-                <Button
-                  className="w-full"
-                  variant={plan.popular ? 'default' : 'outline'}
-                >
-                  {plan.cta}
-                </Button>
-              </Link>
+              <Button
+                className="w-full"
+                variant={plan.popular ? 'default' : 'outline'}
+                onClick={() => handlePlanClick(plan.name)}
+              >
+                {plan.cta}
+              </Button>
             </CardContent>
           </Card>
         ))}
