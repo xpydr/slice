@@ -1,6 +1,7 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { db } from '../db';
 import { StripeService } from '../services/stripe-service';
+import { subscriptionLicenseService } from '../services/subscription-license-service';
 import { authenticateTenantSession, AuthenticatedRequest } from '../middleware/tenant-auth';
 import { ApiResponse, CreateCheckoutSessionRequest, CreateCheckoutSessionResponse, Subscription, Tenant } from '../types';
 import dotenv from 'dotenv';
@@ -130,6 +131,14 @@ async function billingRoutes(fastify: FastifyInstance) {
                 status,
                 priceId || null
               );
+
+              // Update subscription license tracking
+              await subscriptionLicenseService.updateSubscriptionFromWebhook(
+                tenant.id,
+                subscriptionId,
+                priceId,
+                status
+              );
             }
           }
           break;
@@ -151,6 +160,14 @@ async function billingRoutes(fastify: FastifyInstance) {
               status,
               priceId || null
             );
+
+            // Update subscription license tracking
+            await subscriptionLicenseService.updateSubscriptionFromWebhook(
+              tenant.id,
+              subscriptionId,
+              priceId,
+              status
+            );
           }
           break;
         }
@@ -166,6 +183,14 @@ async function billingRoutes(fastify: FastifyInstance) {
               null,
               'canceled',
               null
+            );
+
+            // Update subscription license tracking to mark as canceled
+            await subscriptionLicenseService.updateSubscriptionFromWebhook(
+              tenant.id,
+              null,
+              null,
+              'canceled'
             );
           }
           break;
