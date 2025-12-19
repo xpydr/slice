@@ -1,6 +1,7 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { db } from '../db';
 import { laasLicenseService } from '../services/laas-license-service';
+import { subscriptionLicenseService } from '../services/subscription-license-service';
 import { authenticateTenant, authenticateTenantSession, AuthenticatedRequest } from '../middleware/tenant-auth';
 import {
   ApiResponse,
@@ -933,6 +934,16 @@ async function adminRoutes(fastify: FastifyInstance) {
           });
         }
 
+        // Check license limit before creating
+        const limitCheck = await subscriptionLicenseService.checkLicenseLimit(tenant.id);
+        if (!limitCheck.allowed) {
+          return reply.code(403).send({
+            success: false,
+            error: limitCheck.reason || 'License limit exceeded',
+            quota: limitCheck.quota,
+          });
+        }
+
         const license = await laasLicenseService.createLicense(tenant.id, planId, undefined, expiresInDays);
 
         if (!license) {
@@ -941,6 +952,9 @@ async function adminRoutes(fastify: FastifyInstance) {
             error: 'Failed to create license',
           });
         }
+
+        // Increment license count after successful creation
+        await subscriptionLicenseService.incrementLicenseCount(tenant.id);
 
         // Invalidate cache
         await invalidateCacheByTags([`tenant:${tenant.id}:licenses`]);
