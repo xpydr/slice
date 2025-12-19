@@ -723,6 +723,166 @@ class PrismaDB {
     if (!prismaTenant) return undefined;
     return prismaTenantToTenant(prismaTenant);
   }
+
+  // ========== STRIPE PLAN MAPPING METHODS ==========
+
+  async createStripePlanMapping(
+    stripePriceId: string,
+    name: string,
+    maxLicenses: number,
+    description?: string
+  ): Promise<{ id: string; stripePriceId: string; name: string; description?: string; maxLicenses: number }> {
+    const mapping = await prisma.stripePlanMapping.upsert({
+      where: { stripePriceId },
+      update: {
+        name,
+        description: description ?? undefined,
+        maxLicenses,
+      },
+      create: {
+        stripePriceId,
+        name,
+        description: description ?? undefined,
+        maxLicenses,
+      },
+    });
+    return {
+      id: mapping.id,
+      stripePriceId: mapping.stripePriceId,
+      name: mapping.name,
+      description: mapping.description || undefined,
+      maxLicenses: mapping.maxLicenses,
+    };
+  }
+
+  async getStripePlanMapping(stripePriceId: string): Promise<{ id: string; stripePriceId: string; name: string; description?: string; maxLicenses: number } | undefined> {
+    const mapping = await prisma.stripePlanMapping.findUnique({
+      where: { stripePriceId },
+    });
+    if (!mapping) return undefined;
+    return {
+      id: mapping.id,
+      stripePriceId: mapping.stripePriceId,
+      name: mapping.name,
+      description: mapping.description || undefined,
+      maxLicenses: mapping.maxLicenses,
+    };
+  }
+
+  // ========== SUBSCRIPTION LICENSE TRACKING METHODS ==========
+
+  async getSubscriptionLicenseTracking(tenantId: string): Promise<{
+    id: string;
+    tenantId: string;
+    stripeSubscriptionId?: string;
+    stripePriceId?: string;
+    maxLicenses: number;
+    usedLicenses: number;
+    subscriptionStatus?: string;
+  } | undefined> {
+    const tracking = await prisma.subscriptionLicenseTracking.findUnique({
+      where: { tenantId },
+    });
+    if (!tracking) return undefined;
+    return {
+      id: tracking.id,
+      tenantId: tracking.tenantId,
+      stripeSubscriptionId: tracking.stripeSubscriptionId || undefined,
+      stripePriceId: tracking.stripePriceId || undefined,
+      maxLicenses: tracking.maxLicenses,
+      usedLicenses: tracking.usedLicenses,
+      subscriptionStatus: tracking.subscriptionStatus ? tracking.subscriptionStatus.toLowerCase() : undefined,
+    };
+  }
+
+  async createOrUpdateSubscriptionTracking(
+    tenantId: string,
+    stripeSubscriptionId: string | null,
+    stripePriceId: string | null,
+    maxLicenses: number,
+    subscriptionStatus: 'active' | 'past_due' | 'canceled' | 'unpaid' | 'trialing' | 'incomplete' | 'incomplete_expired' | null
+  ): Promise<{
+    id: string;
+    tenantId: string;
+    stripeSubscriptionId?: string;
+    stripePriceId?: string;
+    maxLicenses: number;
+    usedLicenses: number;
+    subscriptionStatus?: string;
+  }> {
+    const tracking = await prisma.subscriptionLicenseTracking.upsert({
+      where: { tenantId },
+      update: {
+        stripeSubscriptionId: stripeSubscriptionId || undefined,
+        stripePriceId: stripePriceId || undefined,
+        maxLicenses,
+        subscriptionStatus: subscriptionStatus ? subscriptionStatus.toUpperCase() as SubscriptionStatus : null,
+      },
+      create: {
+        tenantId,
+        stripeSubscriptionId: stripeSubscriptionId || undefined,
+        stripePriceId: stripePriceId || undefined,
+        maxLicenses,
+        usedLicenses: 0,
+        subscriptionStatus: subscriptionStatus ? subscriptionStatus.toUpperCase() as SubscriptionStatus : null,
+      },
+    });
+    return {
+      id: tracking.id,
+      tenantId: tracking.tenantId,
+      stripeSubscriptionId: tracking.stripeSubscriptionId || undefined,
+      stripePriceId: tracking.stripePriceId || undefined,
+      maxLicenses: tracking.maxLicenses,
+      usedLicenses: tracking.usedLicenses,
+      subscriptionStatus: tracking.subscriptionStatus ? tracking.subscriptionStatus.toLowerCase() : undefined,
+    };
+  }
+
+  async incrementLicenseCount(tenantId: string): Promise<void> {
+    await prisma.subscriptionLicenseTracking.updateMany({
+      where: { tenantId },
+      data: {
+        usedLicenses: {
+          increment: 1,
+        },
+      },
+    });
+  }
+
+  async decrementLicenseCount(tenantId: string): Promise<void> {
+    await prisma.subscriptionLicenseTracking.updateMany({
+      where: {
+        tenantId,
+        usedLicenses: { gt: 0 },
+      },
+      data: {
+        usedLicenses: {
+          decrement: 1,
+        },
+      },
+    });
+  }
+
+  async getTenantLicenseUsage(tenantId: string): Promise<{
+    maxLicenses: number;
+    usedLicenses: number;
+    remainingLicenses: number;
+    hasActiveSubscription: boolean;
+  } | null> {
+    const tracking = await prisma.subscriptionLicenseTracking.findUnique({
+      where: { tenantId },
+    });
+    if (!tracking) return null;
+
+    const hasActiveSubscription = tracking.subscriptionStatus === 'ACTIVE' || tracking.subscriptionStatus === 'TRIALING';
+
+    return {
+      maxLicenses: tracking.maxLicenses,
+      usedLicenses: tracking.usedLicenses,
+      remainingLicenses: Math.max(0, tracking.maxLicenses - tracking.usedLicenses),
+      hasActiveSubscription,
+    };
+  }
 }
 
 export const db = new PrismaDB();
