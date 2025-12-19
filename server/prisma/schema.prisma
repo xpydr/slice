@@ -31,6 +31,7 @@ model Tenant {
   users                  User[]
   auditLogs              AuditLog[]
   emailVerificationCodes EmailVerificationCode[]
+  subscriptionLicenseTracking SubscriptionLicenseTracking?
 
   @@index([status])
   @@index([stripeCustomerId])
@@ -278,4 +279,39 @@ model EmailVerificationCode {
   @@index([tenantId])
   @@index([expiresAt])
   @@map("email_verification_codes")
+}
+
+// Stripe Plan Mapping - Maps Stripe Price IDs to license limits
+model StripePlanMapping {
+  id            String   @id @default(uuid())
+  stripePriceId String   @unique
+  name          String
+  description   String?
+  maxLicenses   Int       // Maximum number of licenses allowed for this plan
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([stripePriceId])
+  @@map("stripe_plan_mappings")
+}
+
+// Subscription License Tracking - Tracks tenant subscriptions and license usage
+model SubscriptionLicenseTracking {
+  id                  String            @id @default(uuid())
+  tenantId            String            @unique
+  stripeSubscriptionId String?
+  stripePriceId       String?
+  maxLicenses         Int               // Maximum licenses allowed by subscription
+  usedLicenses        Int               @default(0) // Current number of licenses created
+  subscriptionStatus  SubscriptionStatus?
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([stripeSubscriptionId])
+  @@index([stripePriceId])
+  @@index([subscriptionStatus])
+  @@map("subscription_license_tracking")
 }
