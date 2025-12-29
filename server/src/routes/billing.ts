@@ -73,8 +73,11 @@ async function billingRoutes(fastify: FastifyInstance) {
 
   // Stripe webhook endpoint (no authentication - uses signature verification)
   // Note: This endpoint needs raw body for signature verification
-  // In production, configure Fastify with @fastify/raw-body or similar plugin
-  fastify.post('/webhook', async (request: FastifyRequest<{ Body: Buffer | string | any }>, reply: FastifyReply) => {
+  fastify.post('/webhook', {
+    config: {
+      rawBody: true, // Enable raw body for this route
+    },
+  }, async (request: FastifyRequest<{ Body: Buffer | string | any; rawBody?: Buffer }>, reply: FastifyReply) => {
     const sig = request.headers['stripe-signature'] as string;
     const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
@@ -89,12 +92,15 @@ async function billingRoutes(fastify: FastifyInstance) {
 
     try {
       // Get raw body for signature verification
-      const rawBody = typeof request.body === 'string' 
-        ? request.body 
-        : request.body instanceof Buffer 
-          ? request.body.toString('utf8')
-          : JSON.stringify(request.body);
-      
+      // Use rawBody if available (from plugin), otherwise fall back to request.body
+      const rawBody = (request as any).rawBody
+        ? (request as any).rawBody.toString('utf8')
+        : typeof request.body === 'string'
+          ? request.body
+          : request.body instanceof Buffer
+            ? request.body.toString('utf8')
+            : JSON.stringify(request.body);
+
       const event = StripeService.verifyWebhookSignature(rawBody, sig, webhookSecret);
 
       // Handle different event types
@@ -223,7 +229,7 @@ async function billingRoutes(fastify: FastifyInstance) {
       try {
         const tenantId = request.tenant!.id;
         const tenant = await db.getTenant(tenantId);
-        
+
         if (!tenant) {
           return reply.code(404).send({
             success: false,
@@ -275,7 +281,7 @@ async function billingRoutes(fastify: FastifyInstance) {
       try {
         const tenantId = request.tenant!.id;
         const tenant = await db.getTenant(tenantId);
-        
+
         if (!tenant) {
           return reply.code(404).send({
             success: false,
