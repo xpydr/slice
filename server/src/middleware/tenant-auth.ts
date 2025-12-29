@@ -1,8 +1,8 @@
-import { FastifyRequest, FastifyReply } from 'fastify';
+import { FastifyRequest, FastifyReply, RouteGenericInterface } from 'fastify';
 import { db } from '../db';
 import { verifyToken, getSessionByToken } from '../services/jwt-service';
 
-export interface AuthenticatedRequest extends FastifyRequest {
+export interface AuthenticatedRequest<T extends RouteGenericInterface = RouteGenericInterface> extends FastifyRequest<T> {
   tenant?: {
     id: string;
     name: string;
