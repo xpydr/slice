@@ -20,6 +20,7 @@
     "argon2": "^0.44.0",
     "dotenv": "^17.2.3",
     "fastify": "^4.24.3",
+    "fastify-raw-body": "^4.x.x",
     "ioredis": "^5.3.2",
     "jsonwebtoken": "^9.0.2",
     "resend": "^4.0.0",
