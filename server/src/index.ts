@@ -5,6 +5,7 @@ import billingRouter from './routes/billing';
 import cors from '@fastify/cors';
 import cookie from '@fastify/cookie';
 import rateLimit from '@fastify/rate-limit';
+import rawBody from 'fastify-raw-body';
 import dotenv from 'dotenv';
 import { rateLimitMiddleware } from './middleware/rate-limit';
 import { cacheMiddleware } from './middleware/cache';
@@ -17,6 +18,12 @@ const fastify = Fastify({
 });
 
 const PORT = parseInt(process.env.PORT || '3001', 10);
+
+// Register raw body plugin
+fastify.register(rawBody, {
+  field: 'rawBody',
+  global: false,
+});
 
 // Register cookie plugin
 fastify.register(cookie, {
