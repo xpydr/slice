@@ -41,7 +41,7 @@ export default function CheckoutPage() {
         setLoading(true)
         setError(null)
         const response = await createCheckoutSession(priceId)
-        
+
         if (response.success && response.data) {
           setClientSecret(response.data.clientSecret)
         } else {
@@ -151,12 +151,15 @@ export default function CheckoutPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <EmbeddedCheckoutProvider
-                stripe={stripePromise}
-                options={{ clientSecret }}
-              >
-                <EmbeddedCheckout />
-              </EmbeddedCheckoutProvider>
+              {clientSecret && (
+                <EmbeddedCheckoutProvider
+                  key={clientSecret}
+                  stripe={stripePromise}
+                  options={{ clientSecret }}
+                >
+                  <EmbeddedCheckout />
+                </EmbeddedCheckoutProvider>
+              )}
             </CardContent>
           </Card>
         </div>
