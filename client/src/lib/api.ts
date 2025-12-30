@@ -1,4 +1,4 @@
-const API_BASE_URL = 'http://localhost:3001/api/v1/admin';
+const API_BASE_URL = process.env.NEXT_PUBLIC_SERVER_URL;
 
 export interface ApiResponse<T> {
   success: boolean;
@@ -561,6 +561,8 @@ export async function getAuditLogs(
 
 // ========== BILLING API ==========
 
+const BILLING_URL = process.env.NEXT_PUBLIC_BILLING_URL;
+
 export interface Subscription {
   id: string;
   status: 'active' | 'past_due' | 'canceled' | 'unpaid' | 'trialing' | 'incomplete' | 'incomplete_expired';
@@ -581,13 +583,11 @@ export interface CreateCheckoutSessionResponse {
   sessionId: string;
 }
 
-const BILLING_API_BASE_URL = 'http://localhost:3001/api/v1/billing';
-
 export async function createCheckoutSession(
   priceId: string
 ): Promise<ApiResponse<CreateCheckoutSessionResponse>> {
   try {
-    const response = await fetch(`${BILLING_API_BASE_URL}/create-checkout-session`, {
+    const response = await fetch(`${BILLING_URL}/create-checkout-session`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -608,7 +608,7 @@ export async function createCheckoutSession(
 
 export async function getSubscription(): Promise<ApiResponse<Subscription | null>> {
   try {
-    const response = await fetch(`${BILLING_API_BASE_URL}/subscription`, {
+    const response = await fetch(`${BILLING_URL}/subscription`, {
       method: 'GET',
       credentials: 'include',
     });
@@ -625,7 +625,7 @@ export async function getSubscription(): Promise<ApiResponse<Subscription | null
 
 export async function cancelSubscription(): Promise<ApiResponse<{ message: string; cancelAtPeriodEnd: boolean }>> {
   try {
-    const response = await fetch(`${BILLING_API_BASE_URL}/cancel-subscription`, {
+    const response = await fetch(`${BILLING_URL}/cancel-subscription`, {
       method: 'POST',
       credentials: 'include',
     });
