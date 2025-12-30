@@ -58,28 +58,73 @@ export class SubscriptionLicenseService {
     stripePriceId: string | null,
     subscriptionStatus: SubscriptionStatus | null
   ): Promise<void> {
+    console.log(`[SubscriptionLicenseService] updateSubscriptionFromWebhook called - Tenant: ${tenantId}, Subscription: ${stripeSubscriptionId}, Price ID: ${stripePriceId}, Status: ${subscriptionStatus}`);
+
     // If no price ID, we can't determine license limit - skip
     if (!stripePriceId) {
-      console.warn(`No Stripe Price ID provided for tenant ${tenantId}, skipping license tracking update`);
-      return;
+      const errorMsg = `No Stripe Price ID provided for tenant ${tenantId}, skipping license tracking update`;
+      console.warn(`[SubscriptionLicenseService] ${errorMsg}`);
+      throw new Error(errorMsg);
     }
 
     // Get license limit from Stripe Plan Mapping
-    const planMapping = await db.getStripePlanMapping(stripePriceId);
+    let planMapping;
+    try {
+      planMapping = await db.getStripePlanMapping(stripePriceId);
+    } catch (error) {
+      const errorMsg = `Failed to retrieve plan mapping for Stripe Price ID ${stripePriceId} (tenant ${tenantId})`;
+      console.error(`[SubscriptionLicenseService] ${errorMsg}:`, error);
+      throw new Error(`${errorMsg}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
 
     if (!planMapping) {
-      console.warn(`No plan mapping found for Stripe Price ID ${stripePriceId}, skipping license tracking update`);
-      return;
+      const errorMsg = `No plan mapping found for Stripe Price ID ${stripePriceId} (tenant ${tenantId}). Please create a plan mapping using the admin API endpoint POST /api/v1/admin/stripe-plan-mappings with body: { "stripePriceId": "${stripePriceId}", "name": "Plan Name", "maxLicenses": <number> }`;
+      console.error(`[SubscriptionLicenseService] ${errorMsg}`);
+      console.warn(`[SubscriptionLicenseService] Creating tracking record with default maxLicenses=1 for tenant ${tenantId} to allow basic functionality`);
+      
+      // Create tracking record with default maxLicenses=1 as a temporary workaround
+      // This allows the tenant to create at least 1 license while the proper mapping is created
+      // The admin should create the proper plan mapping as soon as possible
+      try {
+        await db.createOrUpdateSubscriptionTracking(
+          tenantId,
+          stripeSubscriptionId,
+          stripePriceId,
+          1, // Default to 1 license as a temporary workaround
+          subscriptionStatus || null
+        );
+        console.log(`[SubscriptionLicenseService] Created tracking record with default maxLicenses=1 for tenant ${tenantId}. IMPORTANT: Please create proper plan mapping for ${stripePriceId} using POST /api/v1/admin/stripe-plan-mappings`);
+        // Don't throw error - we've created the tracking record with a temporary default
+        return;
+      } catch (error) {
+        const fallbackErrorMsg = `Failed to create fallback tracking record for tenant ${tenantId}`;
+        console.error(`[SubscriptionLicenseService] ${fallbackErrorMsg}:`, error);
+        throw new Error(`${errorMsg}. Additionally, ${fallbackErrorMsg}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
+    }
+
+    console.log(`[SubscriptionLicenseService] Found plan mapping for ${stripePriceId}: ${planMapping.name} (maxLicenses: ${planMapping.maxLicenses})`);
+
+    // Validate subscription status
+    if (subscriptionStatus && !['active', 'past_due', 'canceled', 'unpaid', 'trialing', 'incomplete', 'incomplete_expired'].includes(subscriptionStatus)) {
+      console.warn(`[SubscriptionLicenseService] Invalid subscription status: ${subscriptionStatus} for tenant ${tenantId}`);
     }
 
     // Create or update subscription tracking
-    await db.createOrUpdateSubscriptionTracking(
-      tenantId,
-      stripeSubscriptionId,
-      stripePriceId,
-      planMapping.maxLicenses,
-      subscriptionStatus || null
-    );
+    try {
+      await db.createOrUpdateSubscriptionTracking(
+        tenantId,
+        stripeSubscriptionId,
+        stripePriceId,
+        planMapping.maxLicenses,
+        subscriptionStatus || null
+      );
+      console.log(`[SubscriptionLicenseService] Successfully created/updated subscription tracking for tenant ${tenantId} with ${planMapping.maxLicenses} max licenses`);
+    } catch (error) {
+      const errorMsg = `Failed to create/update subscription tracking for tenant ${tenantId}`;
+      console.error(`[SubscriptionLicenseService] ${errorMsg}:`, error);
+      throw new Error(`${errorMsg}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   }
 
   /**

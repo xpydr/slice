@@ -160,6 +160,7 @@ export class StripeService {
 
   /**
    * Map Stripe subscription status to our SubscriptionStatus type
+   * Handles both test mode and live mode subscriptions identically
    */
   static mapSubscriptionStatus(stripeStatus: Stripe.Subscription.Status): SubscriptionStatus {
     const statusMap: Record<Stripe.Subscription.Status, SubscriptionStatus> = {
@@ -167,13 +168,20 @@ export class StripeService {
       past_due: 'past_due',
       canceled: 'canceled',
       unpaid: 'unpaid',
-      trialing: 'trialing',
+      trialing: 'trialing', // Test mode subscriptions can be in trialing status
       incomplete: 'incomplete',
       incomplete_expired: 'incomplete_expired',
       paused: 'active', // Stripe paused subscriptions are considered active
     }
 
-    return statusMap[stripeStatus] || 'incomplete';
+    const mappedStatus = statusMap[stripeStatus] || 'incomplete';
+    
+    // Log if we encounter an unmapped status (shouldn't happen, but helps with debugging)
+    if (!statusMap[stripeStatus]) {
+      console.warn(`[StripeService] Unmapped subscription status: ${stripeStatus}, defaulting to 'incomplete'`);
+    }
+    
+    return mappedStatus;
   }
 }
 
