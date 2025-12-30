@@ -31,5 +31,6 @@ export const queryKeys = {
     if (entityType) return ['audit-logs', entityType] as const;
     return ['audit-logs'] as const;
   },
+  apiKeys: ['api-keys'] as const,
 };
 

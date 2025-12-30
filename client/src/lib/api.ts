@@ -640,3 +640,68 @@ export async function cancelSubscription(): Promise<ApiResponse<{ message: strin
   }
 }
 
+// ========== API KEYS API ==========
+
+export interface TenantApiKey {
+  id: string;
+  tenantId: string;
+  name: string;
+  keyPrefix: string; // First 8 chars for identification
+  lastUsedAt?: string;
+  expiresAt?: string;
+  status: 'active' | 'revoked' | 'expired';
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateApiKeyRequest {
+  name?: string;
+  expiresInDays?: number;
+}
+
+export interface CreateApiKeyResponse {
+  apiKey: string; // Plaintext key - shown only once!
+  apiKeyRecord: TenantApiKey;
+}
+
+export async function createApiKey(
+  name?: string,
+  expiresInDays?: number
+): Promise<ApiResponse<CreateApiKeyResponse>> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api-keys`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+      body: JSON.stringify({ name, expiresInDays }),
+    });
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Network error occurred',
+    };
+  }
+}
+
+export async function getApiKeys(): Promise<ApiResponse<TenantApiKey[]>> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api-keys`, {
+      method: 'GET',
+      credentials: 'include',
+    });
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Network error occurred',
+    };
+  }
+}
+
