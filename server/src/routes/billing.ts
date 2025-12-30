@@ -103,6 +103,8 @@ async function billingRoutes(fastify: FastifyInstance) {
 
       const event = StripeService.verifyWebhookSignature(rawBody, sig, webhookSecret);
 
+      console.log(`[Webhook] Received event: ${event.type} (ID: ${event.id})`);
+
       // Handle different event types
       switch (event.type) {
         case 'checkout.session.completed': {
@@ -111,9 +113,13 @@ async function billingRoutes(fastify: FastifyInstance) {
           const subscriptionId = session.subscription as string;
           const customerDetails = session.customer_details as any;
 
+          console.log(`[Webhook] Processing checkout.session.completed - Customer: ${customerId}, Subscription: ${subscriptionId}`);
+
           if (customerId && subscriptionId) {
             const tenant = await db.getTenantByStripeCustomerId(customerId);
             if (tenant) {
+              console.log(`[Webhook] Found tenant: ${tenant.id} (${tenant.email}) for customer ${customerId}`);
+
               // Update customer billing address if available
               if (customerDetails?.address) {
                 try {
@@ -122,7 +128,7 @@ async function billingRoutes(fastify: FastifyInstance) {
                     customerDetails.address
                   );
                 } catch (error) {
-                  console.error('Failed to update customer billing address:', error);
+                  console.error(`[Webhook] Failed to update customer billing address for tenant ${tenant.id}:`, error);
                   // Don't fail the webhook if address update fails
                 }
               }
@@ -131,6 +137,8 @@ async function billingRoutes(fastify: FastifyInstance) {
               const priceId = subscription.items.data[0]?.price.id || null;
               const status = StripeService.mapSubscriptionStatus(subscription.status);
 
+              console.log(`[Webhook] Subscription details - ID: ${subscriptionId}, Price ID: ${priceId}, Status: ${subscription.status} -> ${status}`);
+
               await db.updateTenantSubscription(
                 tenant.id,
                 subscriptionId,
@@ -138,14 +146,31 @@ async function billingRoutes(fastify: FastifyInstance) {
                 priceId || null
               );
 
+              console.log(`[Webhook] Updated tenant subscription record for tenant ${tenant.id}`);
+
               // Update subscription license tracking
-              await subscriptionLicenseService.updateSubscriptionFromWebhook(
-                tenant.id,
-                subscriptionId,
-                priceId,
-                status
-              );
+              try {
+                await subscriptionLicenseService.updateSubscriptionFromWebhook(
+                  tenant.id,
+                  subscriptionId,
+                  priceId,
+                  status
+                );
+                console.log(`[Webhook] Successfully updated subscription license tracking for tenant ${tenant.id}`);
+              } catch (error) {
+                console.error(`[Webhook] Failed to update subscription license tracking for tenant ${tenant.id}:`, error);
+                // Log detailed error information
+                if (error instanceof Error) {
+                  console.error(`[Webhook] Error details: ${error.message}`);
+                  console.error(`[Webhook] Stack trace: ${error.stack}`);
+                }
+                // Don't fail the webhook, but log the error for debugging
+              }
+            } else {
+              console.warn(`[Webhook] No tenant found for Stripe customer ID: ${customerId}`);
             }
+          } else {
+            console.warn(`[Webhook] Missing customerId or subscriptionId in checkout.session.completed event`);
           }
           break;
         }
@@ -158,8 +183,12 @@ async function billingRoutes(fastify: FastifyInstance) {
           const priceId = subscription.items.data[0]?.price.id || null;
           const status = StripeService.mapSubscriptionStatus(subscription.status);
 
+          console.log(`[Webhook] Processing ${event.type} - Customer: ${customerId}, Subscription: ${subscriptionId}, Price ID: ${priceId}, Status: ${subscription.status} -> ${status}`);
+
           const tenant = await db.getTenantByStripeCustomerId(customerId);
           if (tenant) {
+            console.log(`[Webhook] Found tenant: ${tenant.id} (${tenant.email}) for customer ${customerId}`);
+
             await db.updateTenantSubscription(
               tenant.id,
               subscriptionId,
@@ -167,13 +196,28 @@ async function billingRoutes(fastify: FastifyInstance) {
               priceId || null
             );
 
+            console.log(`[Webhook] Updated tenant subscription record for tenant ${tenant.id}`);
+
             // Update subscription license tracking
-            await subscriptionLicenseService.updateSubscriptionFromWebhook(
-              tenant.id,
-              subscriptionId,
-              priceId,
-              status
-            );
+            try {
+              await subscriptionLicenseService.updateSubscriptionFromWebhook(
+                tenant.id,
+                subscriptionId,
+                priceId,
+                status
+              );
+              console.log(`[Webhook] Successfully updated subscription license tracking for tenant ${tenant.id}`);
+            } catch (error) {
+              console.error(`[Webhook] Failed to update subscription license tracking for tenant ${tenant.id}:`, error);
+              // Log detailed error information
+              if (error instanceof Error) {
+                console.error(`[Webhook] Error details: ${error.message}`);
+                console.error(`[Webhook] Stack trace: ${error.stack}`);
+              }
+              // Don't fail the webhook, but log the error for debugging
+            }
+          } else {
+            console.warn(`[Webhook] No tenant found for Stripe customer ID: ${customerId}`);
           }
           break;
         }
@@ -182,8 +226,12 @@ async function billingRoutes(fastify: FastifyInstance) {
           const subscription = event.data.object as any;
           const subscriptionId = subscription.id;
 
+          console.log(`[Webhook] Processing customer.subscription.deleted - Subscription: ${subscriptionId}`);
+
           const tenant = await db.getTenantByStripeSubscriptionId(subscriptionId);
           if (tenant) {
+            console.log(`[Webhook] Found tenant: ${tenant.id} (${tenant.email}) for subscription ${subscriptionId}`);
+
             await db.updateTenantSubscription(
               tenant.id,
               null,
@@ -191,13 +239,28 @@ async function billingRoutes(fastify: FastifyInstance) {
               null
             );
 
+            console.log(`[Webhook] Updated tenant subscription record to canceled for tenant ${tenant.id}`);
+
             // Update subscription license tracking to mark as canceled
-            await subscriptionLicenseService.updateSubscriptionFromWebhook(
-              tenant.id,
-              null,
-              null,
-              'canceled'
-            );
+            try {
+              await subscriptionLicenseService.updateSubscriptionFromWebhook(
+                tenant.id,
+                null,
+                null,
+                'canceled'
+              );
+              console.log(`[Webhook] Successfully updated subscription license tracking to canceled for tenant ${tenant.id}`);
+            } catch (error) {
+              console.error(`[Webhook] Failed to update subscription license tracking for tenant ${tenant.id}:`, error);
+              // Log detailed error information
+              if (error instanceof Error) {
+                console.error(`[Webhook] Error details: ${error.message}`);
+                console.error(`[Webhook] Stack trace: ${error.stack}`);
+              }
+              // Don't fail the webhook, but log the error for debugging
+            }
+          } else {
+            console.warn(`[Webhook] No tenant found for Stripe subscription ID: ${subscriptionId}`);
           }
           break;
         }

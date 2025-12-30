@@ -1325,6 +1325,107 @@ async function adminRoutes(fastify: FastifyInstance) {
       }
     }
   );
+
+  // ========== STRIPE PLAN MAPPING MANAGEMENT ==========
+
+  // Create or update Stripe plan mapping
+  fastify.post<{ Body: { stripePriceId: string; name: string; maxLicenses: number; description?: string } }>(
+    '/stripe-plan-mappings',
+    {
+      preHandler: [authenticateTenantSession],
+    },
+    async (request: FastifyRequest<{ Body: { stripePriceId: string; name: string; maxLicenses: number; description?: string } }>, reply: FastifyReply) => {
+      try {
+        const authenticatedRequest = request as AuthenticatedRequest;
+        const tenant = authenticatedRequest.tenant;
+
+        if (!tenant) {
+          return reply.code(401).send({
+            success: false,
+            error: 'Unauthorized',
+          });
+        }
+
+        const { stripePriceId, name, maxLicenses, description } = request.body;
+
+        if (!stripePriceId || !name || maxLicenses === undefined) {
+          return reply.code(400).send({
+            success: false,
+            error: 'stripePriceId, name, and maxLicenses are required',
+          });
+        }
+
+        if (maxLicenses < 0) {
+          return reply.code(400).send({
+            success: false,
+            error: 'maxLicenses must be non-negative',
+          });
+        }
+
+        const mapping = await db.createStripePlanMapping(
+          stripePriceId,
+          name,
+          maxLicenses,
+          description
+        );
+
+        console.log(`[Admin] Created/updated Stripe plan mapping: ${stripePriceId} -> ${name} (${maxLicenses} licenses)`);
+        console.log(`[Admin] Note: If there are existing subscriptions with price ID ${stripePriceId} that have fallback maxLicenses (0 or 1), you may need to trigger a webhook update or manually update them. New subscriptions will use the correct maxLicenses automatically.`);
+
+        return reply.code(201).send({
+          success: true,
+          data: mapping,
+        });
+      } catch (error) {
+        console.error('Create Stripe plan mapping error:', error);
+        return reply.code(500).send({
+          success: false,
+          error: error instanceof Error ? error.message : 'Internal server error',
+        });
+      }
+    }
+  );
+
+  // Get Stripe plan mapping by price ID
+  fastify.get<{ Params: { priceId: string } }>(
+    '/stripe-plan-mappings/:priceId',
+    {
+      preHandler: [authenticateTenantSession],
+    },
+    async (request: FastifyRequest<{ Params: { priceId: string } }>, reply: FastifyReply) => {
+      try {
+        const authenticatedRequest = request as AuthenticatedRequest;
+        const tenant = authenticatedRequest.tenant;
+
+        if (!tenant) {
+          return reply.code(401).send({
+            success: false,
+            error: 'Unauthorized',
+          });
+        }
+
+        const mapping = await db.getStripePlanMapping(request.params.priceId);
+
+        if (!mapping) {
+          return reply.code(404).send({
+            success: false,
+            error: 'Plan mapping not found',
+          });
+        }
+
+        return reply.send({
+          success: true,
+          data: mapping,
+        });
+      } catch (error) {
+        console.error('Get Stripe plan mapping error:', error);
+        return reply.code(500).send({
+          success: false,
+          error: 'Internal server error',
+        });
+      }
+    }
+  );
 }
 
 export default adminRoutes;
