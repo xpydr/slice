@@ -1426,6 +1426,98 @@ async function adminRoutes(fastify: FastifyInstance) {
       }
     }
   );
+
+  // ========== API KEYS (Tenant-scoped) ==========
+  // Dashboard routes for tenants to manage their own API keys
+
+  // Get all API keys for the authenticated tenant
+  fastify.get(
+    '/api-keys',
+    {
+      preHandler: [authenticateTenantSession],
+    },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      try {
+        const authenticatedRequest = request as AuthenticatedRequest;
+        const tenant = authenticatedRequest.tenant;
+
+        if (!tenant) {
+          return reply.code(401).send({
+            success: false,
+            error: 'Unauthorized',
+          });
+        }
+
+        const apiKeys = await db.getApiKeysByTenant(tenant.id);
+
+        return reply.send({
+          success: true,
+          data: apiKeys,
+        });
+      } catch (error) {
+        console.error('Get API keys error:', error);
+        return reply.code(500).send({
+          success: false,
+          error: 'Internal server error',
+        });
+      }
+    }
+  );
+
+  // Create API key for the authenticated tenant
+  fastify.post<{ Body: { name?: string; expiresInDays?: number } }>(
+    '/api-keys',
+    {
+      preHandler: [authenticateTenantSession],
+    },
+    async (request: FastifyRequest<{ Body: { name?: string; expiresInDays?: number } }>, reply: FastifyReply) => {
+      try {
+        const authenticatedRequest = request as AuthenticatedRequest;
+        const tenant = authenticatedRequest.tenant;
+
+        if (!tenant) {
+          return reply.code(401).send({
+            success: false,
+            error: 'Unauthorized',
+          });
+        }
+
+        const { name, expiresInDays } = request.body;
+
+        // Default values
+        const keyName = name || 'Production Key';
+        const expiryDays = expiresInDays ?? 365;
+
+        const { apiKey, apiKeyRecord } = await db.createApiKey(tenant.id, keyName, expiryDays);
+
+        await db.createAuditLog({
+          tenantId: tenant.id,
+          action: 'api_key.created',
+          entityType: 'api_key',
+          entityId: apiKeyRecord.id,
+          metadata: { name: keyName },
+        });
+
+        // Invalidate cache
+        invalidateCacheByTags([`tenant:${tenant.id}`, 'api-keys']);
+
+        // Return API key (only shown once!)
+        return reply.code(201).send({
+          success: true,
+          data: {
+            apiKey, // Plaintext key - store this securely!
+            apiKeyRecord,
+          },
+        });
+      } catch (error) {
+        console.error('Create API key error:', error);
+        return reply.code(500).send({
+          success: false,
+          error: 'Internal server error',
+        });
+      }
+    }
+  );
 }
 
 export default adminRoutes;

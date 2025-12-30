@@ -391,6 +391,25 @@ class PrismaDB {
     };
   }
 
+  async getApiKeysByTenant(tenantId: string): Promise<TenantApiKey[]> {
+    const prismaApiKeys = await prisma.tenantApiKey.findMany({
+      where: { tenantId },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return prismaApiKeys.map(prismaApiKey => ({
+      id: prismaApiKey.id,
+      tenantId: prismaApiKey.tenantId,
+      name: prismaApiKey.name,
+      keyPrefix: prismaApiKey.keyPrefix,
+      lastUsedAt: prismaApiKey.lastUsedAt || undefined,
+      expiresAt: prismaApiKey.expiresAt || undefined,
+      status: prismaApiKey.status.toLowerCase() as TenantApiKey['status'],
+      createdAt: prismaApiKey.createdAt,
+      updatedAt: prismaApiKey.updatedAt,
+    }));
+  }
+
   // ========== USER METHODS (Tenant-scoped) ==========
 
   async createUser(user: Omit<LaaSUser, 'id' | 'createdAt' | 'updatedAt'>): Promise<LaaSUser> {
