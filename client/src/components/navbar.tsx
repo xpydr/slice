@@ -56,9 +56,19 @@ export function Navbar() {
             {!isLoading && (
               <>
                 {isAuthenticated ? (
-                  <Button variant="ghost" size="sm" onClick={handleLogout}>
-                    Log out
-                  </Button>
+                  <>
+                    <Link
+                      href="/dashboard"
+                      className={`text-sm font-medium transition-colors border-dotted border-2 p-2 hover:text-primary ${
+                        isActive('/dashboard') ? 'text-primary' : 'text-muted-foreground'
+                      }`}
+                    >
+                      Dashboard
+                    </Link>
+                    <Button variant="ghost" size="sm" onClick={handleLogout}>
+                      Log out
+                    </Button>
+                  </>
                 ) : (
                   <>
                     <Link href="/login">
