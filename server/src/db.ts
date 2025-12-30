@@ -810,32 +810,57 @@ class PrismaDB {
     usedLicenses: number;
     subscriptionStatus?: string;
   }> {
-    const tracking = await prisma.subscriptionLicenseTracking.upsert({
-      where: { tenantId },
-      update: {
-        stripeSubscriptionId: stripeSubscriptionId || undefined,
-        stripePriceId: stripePriceId || undefined,
-        maxLicenses,
-        subscriptionStatus: subscriptionStatus ? subscriptionStatus.toUpperCase() as SubscriptionStatus : null,
-      },
-      create: {
-        tenantId,
-        stripeSubscriptionId: stripeSubscriptionId || undefined,
-        stripePriceId: stripePriceId || undefined,
-        maxLicenses,
-        usedLicenses: 0,
-        subscriptionStatus: subscriptionStatus ? subscriptionStatus.toUpperCase() as SubscriptionStatus : null,
-      },
-    });
-    return {
-      id: tracking.id,
-      tenantId: tracking.tenantId,
-      stripeSubscriptionId: tracking.stripeSubscriptionId || undefined,
-      stripePriceId: tracking.stripePriceId || undefined,
-      maxLicenses: tracking.maxLicenses,
-      usedLicenses: tracking.usedLicenses,
-      subscriptionStatus: tracking.subscriptionStatus ? tracking.subscriptionStatus.toLowerCase() : undefined,
-    };
+    // Validate inputs
+    if (!tenantId) {
+      throw new Error('tenantId is required for subscription tracking');
+    }
+
+    if (maxLicenses < 0) {
+      throw new Error(`maxLicenses must be non-negative, got ${maxLicenses}`);
+    }
+
+    // Validate subscription status if provided
+    const validStatuses = ['active', 'past_due', 'canceled', 'unpaid', 'trialing', 'incomplete', 'incomplete_expired'];
+    if (subscriptionStatus && !validStatuses.includes(subscriptionStatus)) {
+      throw new Error(`Invalid subscription status: ${subscriptionStatus}. Must be one of: ${validStatuses.join(', ')}`);
+    }
+
+    console.log(`[DB] Creating/updating subscription tracking - Tenant: ${tenantId}, Subscription: ${stripeSubscriptionId || 'null'}, Price ID: ${stripePriceId || 'null'}, Max Licenses: ${maxLicenses}, Status: ${subscriptionStatus || 'null'}`);
+
+    try {
+      const tracking = await prisma.subscriptionLicenseTracking.upsert({
+        where: { tenantId },
+        update: {
+          stripeSubscriptionId: stripeSubscriptionId || undefined,
+          stripePriceId: stripePriceId || undefined,
+          maxLicenses,
+          subscriptionStatus: subscriptionStatus ? subscriptionStatus.toUpperCase() as SubscriptionStatus : null,
+        },
+        create: {
+          tenantId,
+          stripeSubscriptionId: stripeSubscriptionId || undefined,
+          stripePriceId: stripePriceId || undefined,
+          maxLicenses,
+          usedLicenses: 0,
+          subscriptionStatus: subscriptionStatus ? subscriptionStatus.toUpperCase() as SubscriptionStatus : null,
+        },
+      });
+
+      console.log(`[DB] Successfully created/updated subscription tracking for tenant ${tenantId} - ID: ${tracking.id}, Status: ${tracking.subscriptionStatus || 'null'}, Max Licenses: ${tracking.maxLicenses}`);
+
+      return {
+        id: tracking.id,
+        tenantId: tracking.tenantId,
+        stripeSubscriptionId: tracking.stripeSubscriptionId || undefined,
+        stripePriceId: tracking.stripePriceId || undefined,
+        maxLicenses: tracking.maxLicenses,
+        usedLicenses: tracking.usedLicenses,
+        subscriptionStatus: tracking.subscriptionStatus ? tracking.subscriptionStatus.toLowerCase() : undefined,
+      };
+    } catch (error) {
+      console.error(`[DB] Failed to create/update subscription tracking for tenant ${tenantId}:`, error);
+      throw error;
+    }
   }
 
   async incrementLicenseCount(tenantId: string): Promise<void> {
