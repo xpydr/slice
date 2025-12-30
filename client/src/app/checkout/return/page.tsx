@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { CheckCircle2, Loader2, XCircle } from 'lucide-react'
 import Link from 'next/link'
+import { getSubscription } from '@/lib/api'
 
 export default function CheckoutReturnPage() {
   const router = useRouter()
@@ -14,13 +15,35 @@ export default function CheckoutReturnPage() {
   const sessionId = searchParams.get('session_id')
 
   useEffect(() => {
-    // In a real implementation, you might want to verify the session status
-    // with your backend. For now, we'll assume success if session_id is present
     if (sessionId) {
-      // Wait a moment for webhook to process
-      setTimeout(() => {
-        setStatus('success')
-      }, 2000)
+      // Poll for subscription status instead of just waiting
+      const checkSubscription = async () => {
+        try {
+          const response = await getSubscription()
+          if (response.success && response.data) {
+            setStatus('success')
+          } else {
+            // Retry a few times in case webhook is still processing
+            let retries = 0
+            const maxRetries = 5
+            const pollInterval = setInterval(async () => {
+              retries++
+              const pollResponse = await getSubscription()
+              if (pollResponse.success && pollResponse.data) {
+                setStatus('success')
+                clearInterval(pollInterval)
+              } else if (retries >= maxRetries) {
+                setStatus('error')
+                clearInterval(pollInterval)
+              }
+            }, 2000)
+          }
+        } catch (error) {
+          console.error('Failed to check subscription:', error)
+          setStatus('error')
+        }
+      }
+      checkSubscription()
     } else {
       setStatus('error')
     }
