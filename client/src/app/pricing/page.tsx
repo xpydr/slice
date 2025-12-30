@@ -49,7 +49,7 @@ const plans = [
       'Audit logs',
     ],
     cta: 'Get Started',
-    popular: false,
+    popular: true,
   },
   {
     name: 'Enterprise',
@@ -118,7 +118,7 @@ export default function PricingPage() {
             {plan.popular && (
               <div className="absolute -top-4 left-1/2 -translate-x-1/2">
                 <span className="bg-primary text-primary-foreground text-xs font-semibold px-3 py-1 rounded-full">
-                  Most Popular
+                  Best Value {/* Most Popular - Once it becomes true */}
                 </span>
               </div>
             )}
