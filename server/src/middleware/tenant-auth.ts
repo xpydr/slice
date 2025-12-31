@@ -40,14 +40,6 @@ export async function authenticateTenant(
       });
     }
 
-    // Check tenant status
-    if (tenant.status !== 'active') {
-      return reply.code(403).send({
-        success: false,
-        error: `Tenant account is ${tenant.status}`,
-      });
-    }
-
     // Check API key status
     if (tenant.apiKeyStatus !== 'active') {
       return reply.code(403).send({
