@@ -1,11 +1,9 @@
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
-import { Navbar } from '@/components/navbar'
-import { Footer } from '@/components/footer'
 import { AuthProvider } from '@/lib/auth'
 import { QueryProvider } from '@/lib/query-provider'
-import Script from 'next/script'
+import { ConditionalLayout } from '@/components/conditional-layout'
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -42,16 +40,9 @@ export default function RootLayout({
       <body className={inter.className}>
         <QueryProvider>
           <AuthProvider>
-            <Navbar />
-            <main className="min-h-screen">
+            <ConditionalLayout>
               {children}
-            </main>
-            <Script 
-              strategy="lazyOnload"
-              src={process.env.CHAT_EMBED_URL}
-              async 
-            />
-            <Footer />
+            </ConditionalLayout>
           </AuthProvider>
         </QueryProvider>
       </body>
