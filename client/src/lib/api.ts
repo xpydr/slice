@@ -508,6 +508,40 @@ export async function getLicenseUsage(id: string): Promise<ApiResponse<LicenseUs
   }
 }
 
+export interface UserLicense {
+  id: string;
+  userId: string;
+  licenseId: string;
+  assignedAt: string;
+  assignedBy?: string;
+  metadata?: Record<string, any>;
+}
+
+export async function assignLicense(
+  licenseId: string,
+  userId: string,
+  metadata?: Record<string, any>
+): Promise<ApiResponse<UserLicense>> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/licenses/${licenseId}/assign`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+      body: JSON.stringify({ userId, metadata }),
+    });
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Network error occurred',
+    };
+  }
+}
+
 // ========== USERS API ==========
 
 export async function getUsers(externalId?: string): Promise<ApiResponse<LaaSUser[]>> {

@@ -5,10 +5,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Plus, RefreshCw, X } from 'lucide-react'
-import { useLicenses, useCreateLicense, useLicenseUsage } from '@/hooks/use-licenses'
+import { Plus, RefreshCw, X, UserPlus } from 'lucide-react'
+import { useLicenses, useCreateLicense, useLicenseUsage, useAssignLicense } from '@/hooks/use-licenses'
 import { usePlans } from '@/hooks/use-plans'
 import { useProducts } from '@/hooks/use-products'
+import { useUsers } from '@/hooks/use-users'
 import type { Plan, Product } from '@/lib/api'
 
 export default function LicensesPage() {
@@ -16,10 +17,15 @@ export default function LicensesPage() {
   const productsQuery = useProducts()
   const filteredLicensesQuery = useLicenses()
   const createLicenseMutation = useCreateLicense()
+  const assignLicenseMutation = useAssignLicense()
+  const usersQuery = useUsers()
   
   const [showCreateLicense, setShowCreateLicense] = useState(false)
   const [planFilter, setPlanFilter] = useState<string>('')
   const [selectedLicenseId, setSelectedLicenseId] = useState<string | null>(null)
+  const [assignLicenseId, setAssignLicenseId] = useState<string | null>(null)
+  const [selectedUserId, setSelectedUserId] = useState<string>('')
+  const [assignError, setAssignError] = useState<string | null>(null)
   const [licenseForm, setLicenseForm] = useState({ planId: '', expiresInDays: '' })
   
   const filteredLicensesQueryWithFilter = useLicenses(planFilter || undefined)
@@ -28,6 +34,7 @@ export default function LicensesPage() {
   const plans = plansQuery.data?.data || []
   const products = productsQuery.data?.data || []
   const licenses = filteredLicensesQueryWithFilter.data?.data || []
+  const users = usersQuery.data?.data || []
   const licenseUsage = selectedLicenseId && licenseUsageQuery.data?.success ? licenseUsageQuery.data.data : null
 
   const handleCreateLicense = async (e: React.FormEvent) => {
@@ -46,6 +53,32 @@ export default function LicensesPage() {
       }
     } catch (error) {
       // Error handled by React Query
+    }
+  }
+
+  const handleAssignLicense = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!assignLicenseId || !selectedUserId) {
+      return
+    }
+    setAssignError(null)
+    try {
+      const response = await assignLicenseMutation.mutateAsync({
+        licenseId: assignLicenseId,
+        userId: selectedUserId,
+      })
+      if (response.success) {
+        setAssignLicenseId(null)
+        setSelectedUserId('')
+        // Refresh license usage if viewing the assigned license
+        if (selectedLicenseId === assignLicenseId) {
+          licenseUsageQuery.refetch()
+        }
+      } else {
+        setAssignError(response.error || 'Failed to assign license')
+      }
+    } catch (error) {
+      setAssignError(error instanceof Error ? error.message : 'Failed to assign license')
     }
   }
 
@@ -200,18 +233,93 @@ export default function LicensesPage() {
                           </p>
                         )}
                       </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setSelectedLicenseId(license.id)}
-                      >
-                        View Usage
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setAssignLicenseId(license.id)}
+                        >
+                          <UserPlus className="h-4 w-4 mr-1" />
+                          Assign
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setSelectedLicenseId(license.id)}
+                        >
+                          View Usage
+                        </Button>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
               ))}
             </div>
+          )}
+          {assignLicenseId && (
+            <Card className="mt-4">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle>Assign License</CardTitle>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => {
+                      setAssignLicenseId(null)
+                      setSelectedUserId('')
+                    }}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handleAssignLicense} className="space-y-4">
+                  <div>
+                    <Label htmlFor="assign-user">Select User</Label>
+                    {usersQuery.isLoading ? (
+                      <div className="text-sm text-muted-foreground mt-2">Loading users...</div>
+                    ) : users.length === 0 ? (
+                      <div className="text-sm text-muted-foreground mt-2">No users found. Create users first.</div>
+                    ) : (
+                      <select
+                        id="assign-user"
+                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm mt-2"
+                        value={selectedUserId}
+                        onChange={(e) => setSelectedUserId(e.target.value)}
+                        required
+                      >
+                        <option value="">Select a user</option>
+                        {users.map((user) => (
+                          <option key={user.id} value={user.externalId}>
+                            {user.name || user.externalId} {user.email && `(${user.email})`}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    <Button type="submit" disabled={assignLicenseMutation.isPending || !selectedUserId}>
+                      {assignLicenseMutation.isPending ? 'Assigning...' : 'Assign License'}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        setAssignLicenseId(null)
+                        setSelectedUserId('')
+                        setAssignError(null)
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                  {assignError && (
+                    <div className="text-sm text-red-600">{assignError}</div>
+                  )}
+                </form>
+              </CardContent>
+            </Card>
           )}
           {selectedLicenseId && licenseUsageQuery.data?.success && licenseUsage && (
             <Card className="mt-4">
