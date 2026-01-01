@@ -19,6 +19,8 @@
   "scripts": {
     "build": "tsc",
     "dev": "ts-node --esm src/index.ts",
+    "test": "tsx test.ts",
+    "test:watch": "tsx watch test.ts",
     "prepublishOnly": "npm run build"
   },
   "keywords": [
@@ -29,10 +31,11 @@
   ],
   "author": "",
   "license": "ISC",
-  "dependencies": {},
   "devDependencies": {
     "@types/node": "^20.0.0",
-    "typescript": "^5.1.0",
-    "ts-node": "^10.9.1"
+    "dotenv": "^17.2.3",
+    "ts-node": "^10.9.1",
+    "tsx": "^4.21.0",
+    "typescript": "^5.1.0"
   }
 }
