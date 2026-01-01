@@ -2,7 +2,7 @@ import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { db } from '../db';
 import { laasLicenseService } from '../services/laas-license-service';
 import { subscriptionLicenseService } from '../services/subscription-license-service';
-import { authenticateTenant, authenticateTenantSession, AuthenticatedRequest } from '../middleware/tenant-auth';
+import { authenticateTenant, authenticateTenantSession, authenticateTenantOrSession, AuthenticatedRequest } from '../middleware/tenant-auth';
 import {
   ApiResponse,
   CreateProductRequest,
@@ -1125,11 +1125,11 @@ async function adminRoutes(fastify: FastifyInstance) {
     }
   );
 
-  // Assign license to user - Tenant server operation (uses API key)
+  // Assign license to user - Supports both bearer token (tenant server) and JWT session (dashboard)
   fastify.post<{ Params: { id: string }; Body: AssignLicenseRequest }>(
     '/licenses/:id/assign',
     {
-      preHandler: [authenticateTenant], // Bearer token for tenant server
+      preHandler: [authenticateTenantOrSession], // Bearer token or JWT session
     },
     async (request: FastifyRequest<{ Params: { id: string }; Body: AssignLicenseRequest }>, reply: FastifyReply) => {
       try {
