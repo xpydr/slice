@@ -8,7 +8,7 @@ async function validateRoutes(fastify: FastifyInstance) {
   // Requires: Authorization header with API key
   // Body: { userId }
   fastify.post<{ Body: ValidateLicenseRequest }>(
-    '/validate',
+    '/',
     {
       preHandler: [authenticateTenant],
     },
