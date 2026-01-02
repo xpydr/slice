@@ -1,4 +1,16 @@
 const API_BASE_URL = process.env.NEXT_PUBLIC_SERVER_URL;
+const ADMIN_API_KEY = process.env.ADMIN_API_KEY;
+
+/**
+ * Helper function to get admin API key from environment variable
+ * Throws error if not configured (should only be used in admin functions)
+ */
+function getAdminApiKey(): string {
+  if (!ADMIN_API_KEY) {
+    throw new Error('ADMIN_API_KEY environment variable is not set');
+  }
+  return ADMIN_API_KEY;
+}
 
 export interface ApiResponse<T> {
   success: boolean;
@@ -727,6 +739,145 @@ export async function getApiKeys(): Promise<ApiResponse<TenantApiKey[]>> {
     const response = await fetch(`${API_BASE_URL}/api-keys`, {
       method: 'GET',
       credentials: 'include',
+    });
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Network error occurred',
+    };
+  }
+}
+
+// ========== ADMIN API (Platform Admin) ==========
+// These endpoints require ADMIN_API_KEY authentication
+// Set NEXT_PUBLIC_ADMIN_API_KEY environment variable in your .env.local file
+
+export interface Tenant {
+  id: string;
+  name: string;
+  email: string;
+  website?: string;
+  status: 'active' | 'suspended' | 'inactive';
+  emailVerified: boolean;
+  emailVerifiedAt?: string;
+  metadata?: Record<string, any>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateTenantRequest {
+  name: string;
+  email?: string;
+  website?: string;
+  metadata?: Record<string, any>;
+}
+
+export interface CreateTenantApiKeyRequest {
+  name: string;
+  expiresInDays?: number;
+}
+
+export interface CreateTenantApiKeyResponse {
+  apiKey: string; // Plaintext key - shown only once!
+  apiKeyRecord: TenantApiKey;
+}
+
+/**
+ * Create a new tenant (Platform Admin only)
+ * Requires ADMIN_API_KEY in environment variable
+ */
+export async function createTenant(
+  request: CreateTenantRequest
+): Promise<ApiResponse<Tenant>> {
+  try {
+    const adminApiKey = getAdminApiKey();
+    const response = await fetch(`${API_BASE_URL}/tenants`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${adminApiKey}`,
+      },
+      body: JSON.stringify(request),
+    });
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Network error occurred',
+    };
+  }
+}
+
+/**
+ * Get all tenants (Platform Admin only)
+ * Requires ADMIN_API_KEY in environment variable
+ */
+export async function getAllTenants(): Promise<ApiResponse<Tenant[]>> {
+  try {
+    const adminApiKey = getAdminApiKey();
+    const response = await fetch(`${API_BASE_URL}/tenants`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${adminApiKey}`,
+      },
+    });
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Network error occurred',
+    };
+  }
+}
+
+/**
+ * Get tenant by ID (Platform Admin only)
+ * Requires ADMIN_API_KEY in environment variable
+ */
+export async function getTenantById(id: string): Promise<ApiResponse<Tenant>> {
+  try {
+    const adminApiKey = getAdminApiKey();
+    const response = await fetch(`${API_BASE_URL}/tenants/${id}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${adminApiKey}`,
+      },
+    });
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Network error occurred',
+    };
+  }
+}
+
+/**
+ * Create API key for a tenant (Platform Admin only)
+ * Requires ADMIN_API_KEY in environment variable
+ */
+export async function createTenantApiKey(
+  tenantId: string,
+  request: CreateTenantApiKeyRequest
+): Promise<ApiResponse<CreateTenantApiKeyResponse>> {
+  try {
+    const adminApiKey = getAdminApiKey();
+    const response = await fetch(`${API_BASE_URL}/tenants/${tenantId}/api-keys`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${adminApiKey}`,
+      },
+      body: JSON.stringify(request),
     });
 
     const data = await response.json();
