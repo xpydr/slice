@@ -3,6 +3,7 @@ import { db } from '../db';
 import { laasLicenseService } from '../services/laas-license-service';
 import { subscriptionLicenseService } from '../services/subscription-license-service';
 import { authenticateTenant, authenticateTenantSession, authenticateTenantOrSession, AuthenticatedRequest } from '../middleware/tenant-auth';
+import { authenticateAdmin } from '../middleware/admin-auth';
 import {
   ApiResponse,
   CreateProductRequest,
@@ -27,98 +28,119 @@ import { VerifyEmailRequest } from '../types';
 async function adminRoutes(fastify: FastifyInstance) {
   // ========== TENANT MANAGEMENT (Platform Admin) ==========
   // These endpoints are for platform administrators managing tenants
-  // In production, add admin authentication here
+  // Protected by admin API key authentication (ADMIN_API_KEY environment variable)
 
   // Create tenant
-  fastify.post<{ Body: CreateTenantRequest }>('/tenants', async (request: FastifyRequest<{ Body: CreateTenantRequest }>, reply: FastifyReply) => {
-    try {
-      const { name, email, website, metadata } = request.body;
+  fastify.post<{ Body: CreateTenantRequest }>(
+    '/tenants',
+    {
+      preHandler: [authenticateAdmin],
+    },
+    async (request: FastifyRequest<{ Body: CreateTenantRequest }>, reply: FastifyReply) => {
+      try {
+        const { name, email, website, metadata } = request.body;
 
-      if (!name) {
-        return reply.code(400).send({
+        if (!name) {
+          return reply.code(400).send({
+            success: false,
+            error: 'Tenant name is required',
+          });
+        }
+
+        // For admin-created tenants, generate a temporary password hash
+        // In production, admin should set a password or send invitation
+        const tempPasswordHash = await hashPassword('temp-password-' + Date.now());
+        
+        const tenant = await db.createTenant({
+          name,
+          email: email || `admin-${Date.now()}@example.com`, // Fallback if no email
+          website,
+          status: 'inactive',
+          emailVerified: false,
+          metadata,
+          passwordHash: tempPasswordHash,
+        });
+
+        await db.createAuditLog({
+          action: 'tenant.created',
+          entityType: 'tenant',
+          entityId: tenant.id,
+          metadata: { name, email },
+        });
+
+        return reply.code(201).send({
+          success: true,
+          data: tenant,
+        });
+      } catch (error) {
+        console.error('Create tenant error:', error);
+        return reply.code(500).send({
           success: false,
-          error: 'Tenant name is required',
+          error: 'Internal server error',
         });
       }
-
-      // For admin-created tenants, generate a temporary password hash
-      // In production, admin should set a password or send invitation
-      const tempPasswordHash = await hashPassword('temp-password-' + Date.now());
-      
-      const tenant = await db.createTenant({
-        name,
-        email: email || `admin-${Date.now()}@example.com`, // Fallback if no email
-        website,
-        status: 'inactive',
-        emailVerified: false,
-        metadata,
-        passwordHash: tempPasswordHash,
-      });
-
-      await db.createAuditLog({
-        action: 'tenant.created',
-        entityType: 'tenant',
-        entityId: tenant.id,
-        metadata: { name, email },
-      });
-
-      return reply.code(201).send({
-        success: true,
-        data: tenant,
-      });
-    } catch (error) {
-      console.error('Create tenant error:', error);
-      return reply.code(500).send({
-        success: false,
-        error: 'Internal server error',
-      });
     }
-  });
+  );
 
   // Get all tenants
-  fastify.get('/tenants', async (request: FastifyRequest, reply: FastifyReply) => {
-    try {
-      // TODO: Add pagination
-      const tenants = await db.getAllTenants();
-      return reply.send({
-        success: true,
-        data: tenants,
-      });
-    } catch (error) {
-      console.error('Get tenants error:', error);
-      return reply.code(500).send({
-        success: false,
-        error: 'Internal server error',
-      });
-    }
-  });
-
-  // Get tenant by ID
-  fastify.get<{ Params: { id: string } }>('/tenants/:id', async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
-    try {
-      const tenant = await db.getTenant(request.params.id);
-      if (!tenant) {
-        return reply.code(404).send({
+  fastify.get(
+    '/tenants',
+    {
+      preHandler: [authenticateAdmin],
+    },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      try {
+        // TODO: Add pagination
+        const tenants = await db.getAllTenants();
+        return reply.send({
+          success: true,
+          data: tenants,
+        });
+      } catch (error) {
+        console.error('Get tenants error:', error);
+        return reply.code(500).send({
           success: false,
-          error: 'Tenant not found',
+          error: 'Internal server error',
         });
       }
-      return reply.send({
-        success: true,
-        data: tenant,
-      });
-    } catch (error) {
-      console.error('Get tenant error:', error);
-      return reply.code(500).send({
-        success: false,
-        error: 'Internal server error',
-      });
     }
-  });
+  );
+
+  // Get tenant by ID
+  fastify.get<{ Params: { id: string } }>(
+    '/tenants/:id',
+    {
+      preHandler: [authenticateAdmin],
+    },
+    async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
+      try {
+        const tenant = await db.getTenant(request.params.id);
+        if (!tenant) {
+          return reply.code(404).send({
+            success: false,
+            error: 'Tenant not found',
+          });
+        }
+        return reply.send({
+          success: true,
+          data: tenant,
+        });
+      } catch (error) {
+        console.error('Get tenant error:', error);
+        return reply.code(500).send({
+          success: false,
+          error: 'Internal server error',
+        });
+      }
+    }
+  );
 
   // Create API key for tenant
   fastify.post<{ Params: { tenantId: string }; Body: CreateApiKeyRequest }>(
     '/tenants/:tenantId/api-keys',
+    {
+      preHandler: [authenticateAdmin],
+    },
     async (request: FastifyRequest<{ Params: { tenantId: string }; Body: CreateApiKeyRequest }>, reply: FastifyReply) => {
       try {
         const { tenantId } = request.params;
