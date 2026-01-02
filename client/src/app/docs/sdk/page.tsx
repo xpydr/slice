@@ -388,7 +388,7 @@ console.log('License ID:', assignment.licenseId);`}</code>
                     <p className="text-sm font-semibold mb-1">Parameters:</p>
                     <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1">
                       <li><code className="bg-muted px-1 rounded">licenseId</code> (string, required): The license ID to update</li>
-                      <li><code className="bg-muted px-1 rounded">status</code> (LicenseStatus, required): The new status - <code className="bg-muted px-1 rounded">'active'</code>, <code className="bg-muted px-1 rounded">'suspended'</code>, <code className="bg-muted px-1 rounded">'revoked'</code>, or <code className="bg-muted px-1 rounded">'expired'</code></li>
+                      <li><code className="bg-muted px-1 rounded">status</code> (LicenseStatus, required): The new status - <code className="bg-muted px-1 rounded">&apos;active&apos;</code>, <code className="bg-muted px-1 rounded">&apos;suspended&apos;</code>, <code className="bg-muted px-1 rounded">&apos;revoked&apos;</code>, or <code className="bg-muted px-1 rounded">&apos;expired&apos;</code></li>
                     </ul>
                   </div>
                   <div className="mt-3">
