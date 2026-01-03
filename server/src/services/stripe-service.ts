@@ -138,6 +138,25 @@ export class StripeService {
   }
 
   /**
+   * Create a billing portal session for customer subscription management
+   */
+  static async createBillingPortalSession(
+    customerId: string,
+    returnUrl: string
+  ): Promise<Stripe.BillingPortal.Session> {
+    if (!stripe) {
+      throw new Error('Stripe is not configured. Please set STRIPE_SECRET_KEY.');
+    }
+
+    const session = await stripe.billingPortal.sessions.create({
+      customer: customerId,
+      return_url: returnUrl,
+    });
+
+    return session;
+  }
+
+  /**
    * Verify webhook signature
    */
   static verifyWebhookSignature(

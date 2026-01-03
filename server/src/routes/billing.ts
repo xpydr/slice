@@ -36,6 +36,15 @@ async function billingRoutes(fastify: FastifyInstance) {
           });
         }
 
+        // Check if tenant already has an active subscription
+        if (tenant.stripeSubscriptionId &&
+          (tenant.subscriptionStatus === 'active' || tenant.subscriptionStatus === 'trialing')) {
+          return reply.code(400).send({
+            success: false,
+            error: 'You already have an active subscription. Please cancel your current subscription before subscribing to a new plan.',
+          });
+        }
+
         // Get or create Stripe customer
         let stripeCustomerId = tenant.stripeCustomerId;
         if (!stripeCustomerId) {
@@ -385,6 +394,53 @@ async function billingRoutes(fastify: FastifyInstance) {
         return reply.code(500).send({
           success: false,
           error: error instanceof Error ? error.message : 'Failed to cancel subscription',
+        });
+      }
+    }
+  );
+
+  // Create billing portal session
+  fastify.post(
+    '/create-billing-portal-session',
+    { preHandler: [authenticateTenantSession] },
+    async (request: AuthenticatedRequest, reply: FastifyReply) => {
+      try {
+        const tenantId = request.tenant!.id;
+        const tenant = await db.getTenant(tenantId);
+
+        if (!tenant) {
+          return reply.code(404).send({
+            success: false,
+            error: 'Tenant not found',
+          });
+        }
+
+        if (!tenant.stripeCustomerId) {
+          return reply.code(400).send({
+            success: false,
+            error: 'No Stripe customer found. Please create a subscription first.',
+          });
+        }
+
+        // Create return URL pointing back to dashboard settings
+        const returnUrl = `${process.env.CLIENT_URL || 'http://localhost:3000'}/dashboard/settings`;
+
+        const session = await StripeService.createBillingPortalSession(
+          tenant.stripeCustomerId,
+          returnUrl
+        );
+
+        return reply.send({
+          success: true,
+          data: {
+            url: session.url,
+          },
+        });
+      } catch (error) {
+        console.error('Create billing portal session error:', error);
+        return reply.code(500).send({
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to create billing portal session',
         });
       }
     }
