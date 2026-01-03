@@ -2,10 +2,12 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Check } from 'lucide-react'
 import { useAuth } from '@/lib/auth'
+import { getSubscription, createBillingPortalSession, Subscription } from '@/lib/api'
 
 // Map plans to Stripe Price IDs (from environment variables or placeholder)
 const getPriceId = (planName: string): string | null => {
@@ -75,8 +77,29 @@ const plans = [
 export default function PricingPage() {
   const router = useRouter()
   const { isAuthenticated } = useAuth()
+  const [subscription, setSubscription] = useState<Subscription | null>(null)
+  const [isLoadingSubscription, setIsLoadingSubscription] = useState(false)
 
-  const handlePlanClick = (planName: string) => {
+  // Fetch subscription when authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      setIsLoadingSubscription(true)
+      getSubscription()
+        .then((response) => {
+          if (response.success && response.data) {
+            setSubscription(response.data)
+          }
+        })
+        .catch((error) => {
+          console.error('Failed to fetch subscription:', error)
+        })
+        .finally(() => {
+          setIsLoadingSubscription(false)
+        })
+    }
+  }, [isAuthenticated])
+
+  const handlePlanClick = async (planName: string) => {
     if (planName === 'Enterprise') {
       router.push('/contact')
       return
@@ -91,6 +114,43 @@ export default function PricingPage() {
     // If not authenticated, redirect to signup first
     if (!isAuthenticated) {
       router.push(`/signup?redirect=/checkout?priceId=${encodeURIComponent(priceId)}`)
+      return
+    }
+
+    // If subscription data is not loaded yet, fetch it now
+    let currentSubscription = subscription
+    if (!currentSubscription && !isLoadingSubscription) {
+      try {
+        const response = await getSubscription()
+        if (response.success && response.data) {
+          currentSubscription = response.data
+          setSubscription(response.data)
+        }
+      } catch (error) {
+        console.error('Failed to fetch subscription:', error)
+      }
+    }
+
+    // Check if tenant has an active subscription
+    const hasActiveSubscription = currentSubscription && 
+      (currentSubscription.status === 'active' || currentSubscription.status === 'trialing')
+
+    if (hasActiveSubscription) {
+      // Route to Stripe billing portal to manage subscription
+      try {
+        const response = await createBillingPortalSession()
+        if (response.success && response.data?.url) {
+          window.location.href = response.data.url
+        } else {
+          console.error('Failed to create billing portal session:', response.error)
+          // Fallback to checkout if billing portal fails
+          router.push(`/checkout?priceId=${encodeURIComponent(priceId)}`)
+        }
+      } catch (error) {
+        console.error('Error creating billing portal session:', error)
+        // Fallback to checkout if billing portal fails
+        router.push(`/checkout?priceId=${encodeURIComponent(priceId)}`)
+      }
       return
     }
 
