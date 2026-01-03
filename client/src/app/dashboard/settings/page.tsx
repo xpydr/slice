@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { useAuth } from '@/lib/auth'
 import { Settings as SettingsIcon, CreditCard, AlertCircle } from 'lucide-react'
-import { getSubscription, cancelSubscription, type Subscription } from '@/lib/api'
+import { getSubscription, createBillingPortalSession, type Subscription } from '@/lib/api'
 
 export default function SettingsPage() {
   const { user, isAuthenticated } = useAuth()
@@ -16,7 +16,7 @@ export default function SettingsPage() {
   // Subscription state
   const [subscription, setSubscription] = useState<Subscription | null>(null)
   const [subscriptionLoading, setSubscriptionLoading] = useState(true)
-  const [canceling, setCanceling] = useState(false)
+  const [loadingPortal, setLoadingPortal] = useState(false)
 
   // Load subscription
   useEffect(() => {
@@ -38,28 +38,20 @@ export default function SettingsPage() {
     }
   }, [isAuthenticated])
 
-  const handleCancelSubscription = async () => {
-    if (!confirm('Are you sure you want to cancel your subscription? It will remain active until the end of the billing period.')) {
-      return
-    }
-
+  const handleManageSubscription = async () => {
     try {
-      setCanceling(true)
-      const response = await cancelSubscription()
-      if (response.success) {
-        // Reload subscription to get updated status
-        const subResponse = await getSubscription()
-        if (subResponse.success) {
-          setSubscription(subResponse.data || null)
-        }
-        alert('Subscription will be canceled at the end of the billing period.')
+      setLoadingPortal(true)
+      const response = await createBillingPortalSession()
+      if (response.success && response.data?.url) {
+        // Redirect to Stripe billing portal
+        window.location.href = response.data.url
       } else {
-        alert(response.error || 'Failed to cancel subscription')
+        alert(response.error || 'Failed to create billing portal session')
+        setLoadingPortal(false)
       }
     } catch (error) {
-      alert('An error occurred while canceling subscription')
-    } finally {
-      setCanceling(false)
+      alert('An error occurred while opening the billing portal')
+      setLoadingPortal(false)
     }
   }
 
@@ -164,23 +156,12 @@ export default function SettingsPage() {
                     </div>
                   )}
                 </div>
-                {subscription.status === 'active' && !subscription.cancelAtPeriodEnd && (
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      onClick={handleCancelSubscription}
-                      disabled={canceling}
-                    >
-                      {canceling ? 'Canceling...' : 'Cancel Subscription'}
-                    </Button>
-                    <Button variant="outline" onClick={() => router.push('/pricing')}>
-                      Change Plan
-                    </Button>
-                  </div>
-                )}
-                {!subscription.cancelAtPeriodEnd && subscription.status !== 'canceled' && (
-                  <Button variant="outline" onClick={() => router.push('/pricing')}>
-                    Upgrade Plan
+                {subscription.status !== 'canceled' && (
+                  <Button
+                    onClick={handleManageSubscription}
+                    disabled={loadingPortal}
+                  >
+                    {loadingPortal ? 'Loading...' : 'Manage Subscription'}
                   </Button>
                 )}
               </div>
