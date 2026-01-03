@@ -11,6 +11,7 @@ import {
   BarChart3,
   Settings,
   Shield,
+  FileSearch,
 } from 'lucide-react'
 import {
   Sidebar,
@@ -30,6 +31,7 @@ const navigation = [
   { name: 'Plans', href: '/dashboard/plans', icon: FileText },
   { name: 'Users', href: '/dashboard/users', icon: Users },
   { name: 'Analytics', href: '/dashboard/analytics', icon: BarChart3 },
+  { name: 'Audit Logs', href: '/dashboard/audit-logs', icon: FileSearch },
   { name: 'API Keys', href: '/dashboard/api-keys', icon: Shield },
   { name: 'Settings', href: '/dashboard/settings', icon: Settings },
 ]

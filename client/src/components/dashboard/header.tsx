@@ -3,16 +3,12 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Menu, User, LogOut, ChevronDown } from 'lucide-react'
+import { User, LogOut, ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { SidebarTrigger } from '@/components/ui/sidebar'
 import { useAuth } from '@/lib/auth'
-import { cn } from '@/lib/utils'
 
-interface HeaderProps {
-  onMobileMenuToggle: () => void
-}
-
-export function DashboardHeader({ onMobileMenuToggle }: HeaderProps) {
+export function DashboardHeader() {
   const { user, logout } = useAuth()
   const router = useRouter()
   const [showUserMenu, setShowUserMenu] = useState(false)
@@ -25,18 +21,7 @@ export function DashboardHeader({ onMobileMenuToggle }: HeaderProps) {
   return (
     <header className="sticky top-0 z-30 h-16 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="flex h-full items-center justify-between px-4 lg:px-6">
-        {/* Mobile menu button */}
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={onMobileMenuToggle}
-          className="lg:hidden"
-        >
-          <Menu className="h-5 w-5" />
-        </Button>
-
-        {/* Spacer for mobile */}
-        <div className="flex-1 lg:hidden" />
+        <SidebarTrigger />
 
         {/* User menu */}
         <div className="relative">
