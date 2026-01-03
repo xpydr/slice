@@ -686,6 +686,27 @@ export async function cancelSubscription(): Promise<ApiResponse<{ message: strin
   }
 }
 
+export interface CreateBillingPortalSessionResponse {
+  url: string;
+}
+
+export async function createBillingPortalSession(): Promise<ApiResponse<CreateBillingPortalSessionResponse>> {
+  try {
+    const response = await fetch(`${BILLING_URL}/create-billing-portal-session`, {
+      method: 'POST',
+      credentials: 'include',
+    });
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Network error occurred',
+    }
+  }
+}
+
 // ========== API KEYS API ==========
 
 export interface TenantApiKey {
