@@ -114,6 +114,73 @@ function prismaAuditLogToAuditLog(prismaLog: any): AuditLog {
   };
 }
 
+function prismaTenantApiKeyToTenantApiKey(prismaApiKey: any): TenantApiKey {
+  return {
+    id: prismaApiKey.id,
+    tenantId: prismaApiKey.tenantId,
+    name: prismaApiKey.name,
+    keyPrefix: prismaApiKey.keyPrefix,
+    lastUsedAt: prismaApiKey.lastUsedAt || undefined,
+    expiresAt: prismaApiKey.expiresAt || undefined,
+    status: prismaApiKey.status.toLowerCase() as TenantApiKey['status'],
+    createdAt: prismaApiKey.createdAt,
+    updatedAt: prismaApiKey.updatedAt,
+  };
+}
+
+function prismaTenantSessionToTenantSession(prismaSession: any): TenantSession {
+  return {
+    id: prismaSession.id,
+    tenantId: prismaSession.tenantId,
+    tokenHash: prismaSession.tokenHash,
+    expiresAt: prismaSession.expiresAt,
+    createdAt: prismaSession.createdAt,
+    lastUsedAt: prismaSession.lastUsedAt,
+    revokedAt: prismaSession.revokedAt || undefined,
+  };
+}
+
+function prismaStripePlanMappingToStripePlanMapping(mapping: any): { id: string; stripePriceId: string; name: string; description?: string; maxLicenses: number } {
+  return {
+    id: mapping.id,
+    stripePriceId: mapping.stripePriceId,
+    name: mapping.name,
+    description: mapping.description || undefined,
+    maxLicenses: mapping.maxLicenses,
+  };
+}
+
+function prismaSubscriptionLicenseTrackingToSubscriptionLicenseTracking(tracking: any): {
+  id: string;
+  tenantId: string;
+  stripeSubscriptionId?: string;
+  stripePriceId?: string;
+  maxLicenses: number;
+  usedLicenses: number;
+  subscriptionStatus?: string;
+} {
+  return {
+    id: tracking.id,
+    tenantId: tracking.tenantId,
+    stripeSubscriptionId: tracking.stripeSubscriptionId || undefined,
+    stripePriceId: tracking.stripePriceId || undefined,
+    maxLicenses: tracking.maxLicenses,
+    usedLicenses: tracking.usedLicenses,
+    subscriptionStatus: tracking.subscriptionStatus ? tracking.subscriptionStatus.toLowerCase() : undefined,
+  };
+}
+
+function prismaUserLicenseToUserLicense(prismaUserLicense: any): UserLicense {
+  return {
+    id: prismaUserLicense.id,
+    userId: prismaUserLicense.userId,
+    licenseId: prismaUserLicense.licenseId,
+    assignedAt: prismaUserLicense.assignedAt,
+    assignedBy: prismaUserLicense.assignedBy || undefined,
+    metadata: prismaUserLicense.metadata as Record<string, any> | undefined,
+  };
+}
+
 // Helper to convert LicenseStatus enum
 function toPrismaLicenseStatus(status: string): LicenseStatus {
   return status.toUpperCase() as LicenseStatus;
@@ -259,16 +326,7 @@ class PrismaDB {
       where: { tenantId },
       orderBy: { createdAt: 'desc' },
     });
-    return prismaUsers.map(u => ({
-      id: u.id,
-      tenantId: u.tenantId,
-      externalId: u.externalId,
-      email: u.email || undefined,
-      name: u.name || undefined,
-      metadata: u.metadata as Record<string, any> | undefined,
-      createdAt: u.createdAt,
-      updatedAt: u.updatedAt,
-    }));
+    return prismaUsers.map(prismaUserToUser);
   }
 
   // ========== TENANT METHODS ==========
@@ -377,17 +435,7 @@ class PrismaDB {
 
     return {
       apiKey, // Return plaintext key (only shown once)
-      apiKeyRecord: {
-        id: prismaApiKey.id,
-        tenantId: prismaApiKey.tenantId,
-        name: prismaApiKey.name,
-        keyPrefix: prismaApiKey.keyPrefix,
-        lastUsedAt: prismaApiKey.lastUsedAt || undefined,
-        expiresAt: prismaApiKey.expiresAt || undefined,
-        status: prismaApiKey.status.toLowerCase() as TenantApiKey['status'],
-        createdAt: prismaApiKey.createdAt,
-        updatedAt: prismaApiKey.updatedAt,
-      },
+      apiKeyRecord: prismaTenantApiKeyToTenantApiKey(prismaApiKey),
     };
   }
 
@@ -397,17 +445,7 @@ class PrismaDB {
       orderBy: { createdAt: 'desc' },
     });
 
-    return prismaApiKeys.map(prismaApiKey => ({
-      id: prismaApiKey.id,
-      tenantId: prismaApiKey.tenantId,
-      name: prismaApiKey.name,
-      keyPrefix: prismaApiKey.keyPrefix,
-      lastUsedAt: prismaApiKey.lastUsedAt || undefined,
-      expiresAt: prismaApiKey.expiresAt || undefined,
-      status: prismaApiKey.status.toLowerCase() as TenantApiKey['status'],
-      createdAt: prismaApiKey.createdAt,
-      updatedAt: prismaApiKey.updatedAt,
-    }));
+    return prismaApiKeys.map(prismaTenantApiKeyToTenantApiKey);
   }
 
   // ========== USER METHODS (Tenant-scoped) ==========
@@ -451,14 +489,7 @@ class PrismaDB {
       where: { licenseId },
       orderBy: { activatedAt: 'desc' },
     });
-    return prismaActivations.map(a => ({
-      id: a.id,
-      userId: a.userId,
-      licenseId: a.licenseId,
-      activatedAt: a.activatedAt,
-      lastCheckedAt: a.lastCheckedAt || undefined,
-      metadata: a.metadata as Record<string, any> | undefined,
-    }));
+    return prismaActivations.map(prismaActivationToActivation);
   }
 
   async assignLicenseToUser(userId: string, licenseId: string, assignedBy?: string, metadata?: Record<string, any>): Promise<UserLicense> {
@@ -470,14 +501,7 @@ class PrismaDB {
         metadata: metadata ?? undefined,
       },
     });
-    return {
-      id: prismaUserLicense.id,
-      userId: prismaUserLicense.userId,
-      licenseId: prismaUserLicense.licenseId,
-      assignedAt: prismaUserLicense.assignedAt,
-      assignedBy: prismaUserLicense.assignedBy || undefined,
-      metadata: prismaUserLicense.metadata as Record<string, any> | undefined,
-    };
+    return prismaUserLicenseToUserLicense(prismaUserLicense);
   }
 
   // ========== UPDATED PRODUCT METHODS (Tenant-scoped) ==========
@@ -506,14 +530,7 @@ class PrismaDB {
       where: { tenantId },
       orderBy: { createdAt: 'desc' },
     });
-    return prismaProducts.map(p => ({
-      id: p.id,
-      tenantId: p.tenantId,
-      name: p.name,
-      description: p.description || undefined,
-      createdAt: p.createdAt,
-      updatedAt: p.updatedAt,
-    }));
+    return prismaProducts.map(prismaProductToProduct);
   }
 
   // ========== UPDATED LICENSE METHODS (No key) ==========
@@ -552,14 +569,7 @@ class PrismaDB {
       where: { userId, licenseId },
       orderBy: { activatedAt: 'desc' },
     });
-    return prismaActivations.map(a => ({
-      id: a.id,
-      userId: a.userId,
-      licenseId: a.licenseId,
-      activatedAt: a.activatedAt,
-      lastCheckedAt: a.lastCheckedAt || undefined,
-      metadata: a.metadata as Record<string, any> | undefined,
-    }));
+    return prismaActivations.map(prismaActivationToActivation);
   }
 
   async updateActivation(id: string, updates: Partial<Activation>): Promise<Activation | undefined> {
@@ -590,15 +600,7 @@ class PrismaDB {
         lastUsedAt: new Date(),
       },
     });
-    return {
-      id: prismaSession.id,
-      tenantId: prismaSession.tenantId,
-      tokenHash: prismaSession.tokenHash,
-      expiresAt: prismaSession.expiresAt,
-      createdAt: prismaSession.createdAt,
-      lastUsedAt: prismaSession.lastUsedAt,
-      revokedAt: prismaSession.revokedAt || undefined,
-    };
+    return prismaTenantSessionToTenantSession(prismaSession);
   }
 
   async getSessionByTokenHash(tokenHash: string): Promise<TenantSession | undefined> {
@@ -608,15 +610,7 @@ class PrismaDB {
     if (!prismaSession) {
       return undefined;
     }
-    return {
-      id: prismaSession.id,
-      tenantId: prismaSession.tenantId,
-      tokenHash: prismaSession.tokenHash,
-      expiresAt: prismaSession.expiresAt,
-      createdAt: prismaSession.createdAt,
-      lastUsedAt: prismaSession.lastUsedAt,
-      revokedAt: prismaSession.revokedAt || undefined,
-    };
+    return prismaTenantSessionToTenantSession(prismaSession);
   }
 
   async revokeSession(sessionId: string): Promise<void> {
@@ -765,13 +759,7 @@ class PrismaDB {
         maxLicenses,
       },
     });
-    return {
-      id: mapping.id,
-      stripePriceId: mapping.stripePriceId,
-      name: mapping.name,
-      description: mapping.description || undefined,
-      maxLicenses: mapping.maxLicenses,
-    };
+    return prismaStripePlanMappingToStripePlanMapping(mapping);
   }
 
   async getStripePlanMapping(stripePriceId: string): Promise<{ id: string; stripePriceId: string; name: string; description?: string; maxLicenses: number } | undefined> {
@@ -779,13 +767,7 @@ class PrismaDB {
       where: { stripePriceId },
     });
     if (!mapping) return undefined;
-    return {
-      id: mapping.id,
-      stripePriceId: mapping.stripePriceId,
-      name: mapping.name,
-      description: mapping.description || undefined,
-      maxLicenses: mapping.maxLicenses,
-    };
+    return prismaStripePlanMappingToStripePlanMapping(mapping);
   }
 
   // ========== SUBSCRIPTION LICENSE TRACKING METHODS ==========
@@ -803,15 +785,7 @@ class PrismaDB {
       where: { tenantId },
     });
     if (!tracking) return undefined;
-    return {
-      id: tracking.id,
-      tenantId: tracking.tenantId,
-      stripeSubscriptionId: tracking.stripeSubscriptionId || undefined,
-      stripePriceId: tracking.stripePriceId || undefined,
-      maxLicenses: tracking.maxLicenses,
-      usedLicenses: tracking.usedLicenses,
-      subscriptionStatus: tracking.subscriptionStatus ? tracking.subscriptionStatus.toLowerCase() : undefined,
-    };
+    return prismaSubscriptionLicenseTrackingToSubscriptionLicenseTracking(tracking);
   }
 
   async createOrUpdateSubscriptionTracking(
@@ -867,15 +841,7 @@ class PrismaDB {
 
       console.log(`[DB] Successfully created/updated subscription tracking for tenant ${tenantId} - ID: ${tracking.id}, Status: ${tracking.subscriptionStatus || 'null'}, Max Licenses: ${tracking.maxLicenses}`);
 
-      return {
-        id: tracking.id,
-        tenantId: tracking.tenantId,
-        stripeSubscriptionId: tracking.stripeSubscriptionId || undefined,
-        stripePriceId: tracking.stripePriceId || undefined,
-        maxLicenses: tracking.maxLicenses,
-        usedLicenses: tracking.usedLicenses,
-        subscriptionStatus: tracking.subscriptionStatus ? tracking.subscriptionStatus.toLowerCase() : undefined,
-      };
+      return prismaSubscriptionLicenseTrackingToSubscriptionLicenseTracking(tracking);
     } catch (error) {
       console.error(`[DB] Failed to create/update subscription tracking for tenant ${tenantId}:`, error);
       throw error;
