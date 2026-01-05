@@ -45,7 +45,7 @@ export {
  * 
  * @example
  * ```typescript
- * import { SliceClient } from '@slice/sdk';
+ * import { SliceClient } from '@sliceapi/sdk';
  * 
  * const client = new SliceClient('sk_live_...', {
  *   baseUrl: 'https://api.example.com'
