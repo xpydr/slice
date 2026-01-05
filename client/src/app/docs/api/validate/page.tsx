@@ -262,7 +262,7 @@ if (result.data.valid) {
             <div>
               <h3 className="font-semibold mb-2">Using the SDK (Recommended)</h3>
               <pre className="bg-muted p-4 rounded-lg overflow-x-auto text-sm">
-                <code>{`import { SliceClient } from '@slice/sdk';
+                <code>{`import { SliceClient } from '@sliceapi/sdk';
 
 const client = new SliceClient(process.env.SLICE_API_KEY!);
 

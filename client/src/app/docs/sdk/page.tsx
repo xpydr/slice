@@ -82,25 +82,25 @@ export default function SDKDocsPage() {
             <div>
               <h3 className="font-semibold mb-2">Using pnpm (Recommended)</h3>
               <pre className="bg-muted p-4 rounded-lg overflow-x-auto text-sm">
-                <code>pnpm add @slice/sdk</code>
+                <code>pnpm add @sliceapi/sdk</code>
               </pre>
             </div>
             <div>
               <h3 className="font-semibold mb-2">Using npm</h3>
               <pre className="bg-muted p-4 rounded-lg overflow-x-auto text-sm">
-                <code>npm install @slice/sdk</code>
+                <code>npm install @sliceapi/sdk</code>
               </pre>
             </div>
             <div>
               <h3 className="font-semibold mb-2">Using yarn</h3>
               <pre className="bg-muted p-4 rounded-lg overflow-x-auto text-sm">
-                <code>yarn add @slice/sdk</code>
+                <code>yarn add @sliceapi/sdk</code>
               </pre>
             </div>
             <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900 rounded-lg p-4">
               <p className="text-sm">
                 <strong>Note:</strong> This is a private package. Make sure your workspace is properly configured 
-                to access the <code className="bg-muted px-1 rounded">@slice/sdk</code> package.
+                to access the <code className="bg-muted px-1 rounded">@sliceapi/sdk</code> package.
               </p>
             </div>
           </CardContent>
@@ -121,7 +121,7 @@ export default function SDKDocsPage() {
             <div>
               <h3 className="font-semibold mb-2">1. Import the SDK</h3>
               <pre className="bg-muted p-4 rounded-lg overflow-x-auto text-sm">
-                <code>{`import { SliceClient } from '@slice/sdk';`}</code>
+                <code>{`import { SliceClient } from '@sliceapi/sdk';`}</code>
               </pre>
             </div>
             <div>
@@ -478,7 +478,7 @@ console.log('License status:', license.status);`}</code>
   SliceNetworkError,
   SliceTimeoutError,
   SliceAPIError,
-} from '@slice/sdk';
+} from '@sliceapi/sdk';
 
 const client = new SliceClient(process.env.SLICE_API_KEY!);
 
@@ -566,15 +566,15 @@ try {
   
   // SDK-specific types
   SliceClientOptions,
-} from '@slice/sdk';`}</code>
+} from '@sliceapi/sdk';`}</code>
               </pre>
             </div>
 
             <div>
               <h3 className="font-semibold mb-2">Example: Using Types</h3>
               <pre className="bg-muted p-4 rounded-lg overflow-x-auto text-sm">
-                <code>{`import { SliceClient } from '@slice/sdk';
-import type { ValidateLicenseResponse, LicenseStatus } from '@slice/sdk';
+                <code>{`import { SliceClient } from '@sliceapi/sdk';
+import type { ValidateLicenseResponse, LicenseStatus } from '@sliceapi/sdk';
 
 const client = new SliceClient(process.env.SLICE_API_KEY!);
 
@@ -612,7 +612,7 @@ async function updateLicense(
                 This example shows a complete workflow: creating a user, assigning a license, and validating it.
               </p>
               <pre className="bg-muted p-4 rounded-lg overflow-x-auto text-sm">
-                <code>{`import { SliceClient, SliceAuthenticationError } from '@slice/sdk';
+                <code>{`import { SliceClient, SliceAuthenticationError } from '@sliceapi/sdk';
 
 const client = new SliceClient(process.env.SLICE_API_KEY!, {
   baseUrl: process.env.SLICE_API_URL
@@ -671,7 +671,7 @@ async function setupUserWithLicense(
               </p>
               <pre className="bg-muted p-4 rounded-lg overflow-x-auto text-sm">
                 <code>{`// server.ts
-import { SliceClient } from '@slice/sdk';
+import { SliceClient } from '@sliceapi/sdk';
 import express from 'express';
 
 const app = express();
@@ -727,7 +727,7 @@ app.get('/api/premium-feature', checkLicense, (req, res) => {
               <pre className="bg-muted p-4 rounded-lg overflow-x-auto text-sm">
                 <code>{`// LicenseCheck.tsx
 import { useEffect, useState } from 'react';
-import { SliceClient } from '@slice/sdk';
+import { SliceClient } from '@sliceapi/sdk';
 
 const client = new SliceClient(import.meta.env.VITE_SLICE_API_KEY, {
   baseUrl: import.meta.env.VITE_SLICE_API_URL
