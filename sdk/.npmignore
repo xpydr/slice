@@ -1,0 +1,10 @@
+node_modules
+.env
+test.ts
+src/
+tsconfig.json
+*.ts
+!*.d.ts
+.DS_Store
+*.log
+*.map
