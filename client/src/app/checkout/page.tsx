@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { loadStripe } from '@stripe/stripe-js'
 import { EmbeddedCheckoutProvider, EmbeddedCheckout } from '@stripe/react-stripe-js'
@@ -13,7 +13,7 @@ import Link from 'next/link'
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || 'pk_test_placeholder')
 
-export default function CheckoutPage() {
+function CheckoutContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { isAuthenticated, isLoading: authLoading } = useAuth()
@@ -165,6 +165,29 @@ export default function CheckoutPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function CheckoutPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-24">
+          <div className="flex flex-col items-center justify-center min-h-[60vh]">
+            <Card className="w-full max-w-2xl">
+              <CardContent className="pt-6">
+                <div className="flex flex-col items-center justify-center space-y-4">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  <p className="text-muted-foreground">Loading checkout...</p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      }
+    >
+      <CheckoutContent />
+    </Suspense>
   )
 }
 
