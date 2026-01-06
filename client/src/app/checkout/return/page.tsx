@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -8,7 +8,7 @@ import { CheckCircle2, Loader2, XCircle } from 'lucide-react'
 import Link from 'next/link'
 import { getSubscription } from '@/lib/api'
 
-export default function CheckoutReturnPage() {
+function CheckoutReturnContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading')
@@ -113,6 +113,29 @@ export default function CheckoutReturnPage() {
         </Card>
       </div>
     </div>
+  )
+}
+
+export default function CheckoutReturnPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-24">
+          <div className="flex flex-col items-center justify-center min-h-[60vh]">
+            <Card className="w-full max-w-md">
+              <CardContent className="pt-6">
+                <div className="flex flex-col items-center justify-center space-y-4">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  <p className="text-muted-foreground">Processing your subscription...</p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      }
+    >
+      <CheckoutReturnContent />
+    </Suspense>
   )
 }
 

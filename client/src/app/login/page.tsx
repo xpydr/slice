@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label'
 import { login } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
 
-export default function LoginPage() {
+function LoginContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { login: setAuthUser, isAuthenticated, isLoading: authLoading } = useAuth()
@@ -157,6 +157,26 @@ export default function LoginPage() {
         </Card>
       </div>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-24">
+          <div className="flex flex-col items-center justify-center min-h-[60vh]">
+            <Card className="w-full max-w-md">
+              <CardContent className="pt-6">
+                <div className="text-center text-muted-foreground">Loading...</div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      }
+    >
+      <LoginContent />
+    </Suspense>
   )
 }
 
