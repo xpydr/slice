@@ -1,5 +1,5 @@
 // Re-export shared types and add server-specific types
-export * from '../../shared/api-types';
+export * from '@slice/shared/api-types';
 import type { 
   Product, 
   Plan, 
@@ -10,7 +10,7 @@ import type {
   TenantApiKey,
   LaaSUser,
   UserLicense
-} from '../../shared/api-types';
+} from '@slice/shared/api-types';
 
 export interface Database {
   tenants: Map<string, Tenant>;
