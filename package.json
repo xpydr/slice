@@ -1,6 +1,7 @@
 {
   "name": "slice",
   "private": true,
+  "packageManager": "pnpm@9.15.9",
   "devDependencies": {
     "typescript": "^5.1.0",
     "ts-node": "^10.9.1",

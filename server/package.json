@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "main": "dist/index.js",
-  "packageManager": "pnpm@9",
+  "packageManager": "pnpm@9.15.9",
   "scripts": {
     "dev": "ts-node src/index.ts",
     "build": "tsc -b",
