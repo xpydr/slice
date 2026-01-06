@@ -3,9 +3,6 @@
   "version": "0.0.1",
   "private": true,
   "main": "api-types.ts",
-  "scripts": {
-    "build": "tsc -b"
-  },
   "devDependencies": {
     "typescript": "^5.1.0"
   }
