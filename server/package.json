@@ -2,7 +2,7 @@
   "name": "@slice/server",
   "version": "0.0.1",
   "private": true,
-  "main": "dist/index.js",
+  "main": "dist/server/src/index.js",
   "packageManager": "pnpm@9.15.9",
   "scripts": {
     "dev": "ts-node src/index.ts",
