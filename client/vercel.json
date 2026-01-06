@@ -1,0 +1,5 @@
+{
+  "buildCommand": "pnpm install && pnpm --filter client build",
+  "outputDirectory": ".next",
+  "installCommand": "pnpm install"
+}
