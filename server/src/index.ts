@@ -29,11 +29,11 @@ if (isProduction) {
 const fastify = Fastify({
   logger: isProduction
     ? {
-        level: process.env.LOG_LEVEL || 'info',
-        transport: process.env.LOG_PRETTY
-          ? { target: 'pino-pretty', options: { colorize: true } }
-          : undefined,
-      }
+      level: process.env.LOG_LEVEL || 'info',
+      transport: process.env.LOG_PRETTY
+        ? { target: 'pino-pretty', options: { colorize: true } }
+        : undefined,
+    }
     : true,
   trustProxy: true, // Critical for Railway/production behind reverse proxy
   requestIdLogLabel: 'reqId',
@@ -63,16 +63,7 @@ fastify.register(cookie, {
 const corsOrigin = process.env.CORS_ORIGIN || 'https://www.sliceapi.com';
 // CORS_ORIGIN is already validated above for production
 fastify.register(cors, {
-  origin: isProduction && corsOrigin
-    ? (origin, cb) => {
-        // In production, validate origin strictly
-        if (!origin || origin !== corsOrigin) {
-          cb(new Error('Not allowed by CORS'), false);
-          return;
-        }
-        cb(null, true);
-      }
-    : corsOrigin || true, // Allow all in development, or use configured origin
+  origin: isProduction ? corsOrigin : (corsOrigin || true),
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-RateLimit-Limit', 'X-RateLimit-Remaining', 'X-RateLimit-Reset', 'X-Request-Id'],
   credentials: true, // Allow cookies to be sent
@@ -148,7 +139,7 @@ fastify.register(billingRouter, { prefix: '/api/v1/billing' });
 // Graceful shutdown handler
 const gracefulShutdown = async (signal: string) => {
   fastify.log.info({ signal }, 'Received shutdown signal, closing server gracefully...');
-  
+
   try {
     await fastify.close();
     fastify.log.info('Server closed successfully');
@@ -178,11 +169,11 @@ process.on('unhandledRejection', (reason, promise) => {
 const start = async () => {
   try {
     await fastify.listen({ port: PORT, host: '0.0.0.0' });
-    
+
     const logMessage = isProduction
       ? `🚀 License Platform API running on port ${PORT} (production)`
       : `🚀 License Platform API running on http://localhost:${PORT}`;
-    
+
     fastify.log.info(logMessage);
     fastify.log.info(`📋 Health check: http://localhost:${PORT}/health`);
     fastify.log.info(`🔑 Validate endpoint: POST http://localhost:${PORT}/api/v1/validate`);
