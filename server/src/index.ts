@@ -88,9 +88,24 @@ fastify.addHook('onRequest', async (request, reply) => {
 });
 
 // Global error handler
-fastify.setErrorHandler((error, request, reply) => {
-  const statusCode = error.statusCode || 500;
-  const message = error.message || 'Internal Server Error';
+fastify.setErrorHandler((error: unknown, request, reply) => {
+  // Extract error properties with proper type checking
+  let statusCode = 500;
+  let message = 'Internal Server Error';
+
+  if (error && typeof error === 'object') {
+    if ('statusCode' in error && typeof error.statusCode === 'number') {
+      statusCode = error.statusCode;
+    }
+    if ('message' in error && typeof error.message === 'string') {
+      message = error.message;
+    }
+  } else if (error instanceof Error) {
+    message = error.message;
+    if ('statusCode' in error && typeof (error as any).statusCode === 'number') {
+      statusCode = (error as any).statusCode;
+    }
+  }
 
   // Log error details
   fastify.log.error({
