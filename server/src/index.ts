@@ -60,7 +60,7 @@ fastify.register(cookie, {
 });
 
 // Register CORS
-const corsOrigin = process.env.CORS_ORIGIN;
+const corsOrigin = process.env.CORS_ORIGIN || 'https://www.sliceapi.com';
 // CORS_ORIGIN is already validated above for production
 fastify.register(cors, {
   origin: isProduction && corsOrigin
