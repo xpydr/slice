@@ -26,6 +26,8 @@ import { sendVerificationCode } from '../services/email-service';
 import { VerifyEmailRequest } from '../types';
 import { serverLogger } from '../lib/logger';
 
+const isProduction = process.env.NODE_ENV === 'production';
+
 async function adminRoutes(fastify: FastifyInstance) {
   // ========== TENANT MANAGEMENT (Platform Admin) ==========
   // These endpoints are for platform administrators managing tenants
@@ -304,8 +306,8 @@ async function adminRoutes(fastify: FastifyInstance) {
       // Set HTTP-only cookie with JWT token
       reply.setCookie('auth_token', token, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production', // Only send over HTTPS in production
-        sameSite: 'lax', // CSRF protection
+        secure: isProduction, // Only send over HTTPS in production
+        sameSite: isProduction ? 'none' : 'lax', // CSRF protection
         maxAge: 7 * 24 * 60 * 60, // 7 days in seconds
         path: '/',
       });
@@ -569,8 +571,8 @@ async function adminRoutes(fastify: FastifyInstance) {
       // Clear cookie
       reply.clearCookie('auth_token', {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
+        secure: isProduction,
+        sameSite: isProduction ? 'none' : 'lax',
         path: '/',
       });
 
@@ -583,8 +585,8 @@ async function adminRoutes(fastify: FastifyInstance) {
       // Still clear the cookie even if there's an error
       reply.clearCookie('auth_token', {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
+        secure: isProduction,
+        sameSite: isProduction ? 'none' : 'lax',
         path: '/',
       });
       return reply.send({

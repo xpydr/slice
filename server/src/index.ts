@@ -59,7 +59,7 @@ fastify.register(cookie, {
   parseOptions: {
     httpOnly: true,
     secure: isProduction, // Only send over HTTPS in production
-    sameSite: isProduction ? 'strict' : 'lax',
+    sameSite: isProduction ? 'none' : 'lax',
   },
 });
 
