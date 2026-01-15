@@ -10,6 +10,7 @@ import dotenv from 'dotenv';
 import { rateLimitMiddleware } from './middleware/rate-limit';
 import { cacheMiddleware } from './middleware/cache';
 import { getRedisStatus, isRedisAvailable } from './lib/redis';
+import { serverLogger } from './lib/logger';
 
 dotenv.config();
 
@@ -42,6 +43,9 @@ const fastify = Fastify({
   disableRequestLogging: false,
 });
 
+// Initialize server logger with Fastify instance
+serverLogger.setFastifyInstance(fastify);
+
 // Register raw body plugin
 fastify.register(rawBody, {
   field: 'rawBody',
@@ -60,7 +64,7 @@ fastify.register(cookie, {
 });
 
 // Register CORS
-const corsOrigin = process.env.CORS_ORIGIN || 'https://www.sliceapi.com';
+const corsOrigin = process.env.CORS_ORIGIN || 'https://www.sliceapi.com/';
 // CORS_ORIGIN is already validated above for production
 fastify.register(cors, {
   origin: isProduction ? corsOrigin : (corsOrigin || true),

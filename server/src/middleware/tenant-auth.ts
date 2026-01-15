@@ -1,6 +1,7 @@
 import { FastifyRequest, FastifyReply, RouteGenericInterface } from 'fastify';
 import { db } from '../db';
 import { verifyToken, getSessionByToken } from '../services/jwt-service';
+import { serverLogger } from '../lib/logger';
 
 export interface AuthenticatedRequest<T extends RouteGenericInterface = RouteGenericInterface> extends FastifyRequest<T> {
   tenant?: {
@@ -64,9 +65,13 @@ export async function authenticateTenant(
     }
 
     // Update last used timestamp (fire and forget)
-    db.updateApiKeyLastUsed(tenant.apiKeyId).catch(console.error);
+    db.updateApiKeyLastUsed(tenant.apiKeyId).catch((err) => {
+      // Silently fail - this is a non-critical operation
+    });
   } catch (error) {
-    console.error('Authentication error:', error);
+    serverLogger.trackError('tenant_auth_failed', error instanceof Error ? error : new Error('Unknown error'), {
+      hasAuthHeader: !!request.headers.authorization,
+    });
     return reply.code(500).send({
       success: false,
       error: 'Authentication failed',
