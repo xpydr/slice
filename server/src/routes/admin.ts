@@ -24,6 +24,7 @@ import { invalidateCacheByTags } from '../middleware/cache';
 import { generateCode, hashCode, verifyCode } from '../services/verification-code-service';
 import { sendVerificationCode } from '../services/email-service';
 import { VerifyEmailRequest } from '../types';
+import { serverLogger } from '../lib/logger';
 
 async function adminRoutes(fastify: FastifyInstance) {
   // ========== TENANT MANAGEMENT (Platform Admin) ==========

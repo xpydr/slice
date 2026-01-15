@@ -3,6 +3,7 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
 import { Product, Plan, License, Activation, AuditLog, Tenant, TenantApiKey, LaaSUser, UserLicense, TenantWithApiKey, TenantSession } from './types';
 import { hashApiKey, verifyApiKey, getApiKeyPrefix } from './services/api-key-service';
+import { serverLogger } from './lib/logger';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -285,18 +286,35 @@ class PrismaDB {
 
   // Audit Logs
   async createAuditLog(log: Omit<AuditLog, 'id' | 'timestamp'>): Promise<AuditLog> {
-    console.log('Creating audit log:', log);
-    const prismaLog = await prisma.auditLog.create({
-      data: {
-        tenantId: log.tenantId,
-        action: toPrismaAuditLogAction(log.action),
-        entityType: toPrismaEntityType(log.entityType),
+    const startTime = Date.now();
+    try {
+      const prismaLog = await prisma.auditLog.create({
+        data: {
+          tenantId: log.tenantId,
+          action: toPrismaAuditLogAction(log.action),
+          entityType: toPrismaEntityType(log.entityType),
+          entityId: log.entityId,
+          metadata: log.metadata ?? undefined,
+          performedBy: log.performedBy,
+        },
+      });
+      const duration = Date.now() - startTime;
+      serverLogger.trackDbOperation('create', 'audit_logs', duration, {
+        action: log.action,
+        entityType: log.entityType,
         entityId: log.entityId,
-        metadata: log.metadata ?? undefined,
-        performedBy: log.performedBy,
-      },
-    });
-    return prismaAuditLogToAuditLog(prismaLog);
+        tenantId: log.tenantId,
+      });
+      return prismaAuditLogToAuditLog(prismaLog);
+    } catch (error) {
+      serverLogger.trackError('create_audit_log_failed', error instanceof Error ? error : new Error('Unknown error'), {
+        action: log.action,
+        entityType: log.entityType,
+        entityId: log.entityId,
+        tenantId: log.tenantId,
+      });
+      throw error;
+    }
   }
 
   async getAuditLogs(entityType?: string, entityId?: string, tenantId?: string): Promise<AuditLog[]> {

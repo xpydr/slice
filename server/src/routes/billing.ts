@@ -4,6 +4,7 @@ import { StripeService } from '../services/stripe-service';
 import { subscriptionLicenseService } from '../services/subscription-license-service';
 import { authenticateTenantSession, AuthenticatedRequest } from '../middleware/tenant-auth';
 import { ApiResponse, CreateCheckoutSessionRequest, CreateCheckoutSessionResponse, Subscription, Tenant } from '../types';
+import { serverLogger } from '../lib/logger';
 import dotenv from 'dotenv';
 
 dotenv.config();

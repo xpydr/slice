@@ -1,6 +1,7 @@
 import Stripe from 'stripe';
 import dotenv from 'dotenv';
 import { SubscriptionStatus, Tenant } from '../types';
+import { serverLogger } from '../lib/logger';
 
 dotenv.config();
 
@@ -19,18 +20,32 @@ export class StripeService {
    */
   static async createCustomer(tenant: Tenant): Promise<Stripe.Customer> {
     if (!stripe) {
+      serverLogger.error('Stripe not configured', new Error('STRIPE_SECRET_KEY not set'), { tenantId: tenant.id });
       throw new Error('Stripe is not configured. Please set STRIPE_SECRET_KEY.');
     }
 
-    const customer = await stripe.customers.create({
-      email: tenant.email,
-      name: tenant.name,
-      metadata: {
+    const startTime = Date.now();
+    try {
+      serverLogger.trackBusinessEvent('stripe_customer_create_attempt', tenant.id);
+      const customer = await stripe.customers.create({
+        email: tenant.email,
+        name: tenant.name,
+        metadata: {
+          tenantId: tenant.id,
+        },
+      });
+      const duration = Date.now() - startTime;
+      serverLogger.trackBusinessEvent('stripe_customer_create_success', tenant.id, undefined, {
+        customerId: customer.id,
+        duration,
+      });
+      return customer;
+    } catch (error) {
+      serverLogger.trackError('stripe_customer_create_failed', error instanceof Error ? error : new Error('Unknown error'), {
         tenantId: tenant.id,
-      },
-    });
-
-    return customer;
+      });
+      throw error;
+    }
   }
 
   /**
@@ -197,7 +212,10 @@ export class StripeService {
     
     // Log if we encounter an unmapped status (shouldn't happen, but helps with debugging)
     if (!statusMap[stripeStatus]) {
-      console.warn(`[StripeService] Unmapped subscription status: ${stripeStatus}, defaulting to 'incomplete'`);
+      serverLogger.warn('Unmapped Stripe subscription status', {
+        stripeStatus,
+        mappedStatus: 'incomplete',
+      });
     }
     
     return mappedStatus;

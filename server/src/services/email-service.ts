@@ -1,5 +1,6 @@
 import { Resend } from 'resend';
 import dotenv from 'dotenv';
+import { serverLogger } from '../lib/logger';
 
 dotenv.config();
 
@@ -14,13 +15,17 @@ const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
  */
 export async function sendVerificationCode(email: string, code: string): Promise<void> {
   if (!process.env.RESEND_API_KEY) {
-    console.warn('RESEND_API_KEY not set, skipping email send');
+    serverLogger.warn('RESEND_API_KEY not set, skipping email send', { email });
     // In development, log the code instead
-    console.log(`[DEV] Verification code for ${email}: ${code}`);
+    if (process.env.NODE_ENV !== 'production') {
+      serverLogger.info('Verification code (dev mode)', { email, code });
+    }
     return;
   }
 
+  const startTime = Date.now();
   try {
+    serverLogger.trackEvent('send_verification_email_attempt', { email });
     await resend.emails.send({
       from: FROM_EMAIL,
       to: email,
@@ -48,8 +53,10 @@ export async function sendVerificationCode(email: string, code: string): Promise
         </html>
       `,
     });
+    const duration = Date.now() - startTime;
+    serverLogger.trackEvent('send_verification_email_success', { email, duration });
   } catch (error) {
-    console.error('Failed to send verification email:', error);
+    serverLogger.trackError('send_verification_email_failed', error instanceof Error ? error : new Error('Unknown error'), { email });
     throw new Error('Failed to send verification email');
   }
 }

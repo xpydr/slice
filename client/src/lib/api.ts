@@ -1,3 +1,7 @@
+import { apiClient, billingClient } from './axios-client';
+import { logger } from './logger';
+import axios, { AxiosError } from 'axios';
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_SERVER_URL;
 const ADMIN_API_KEY = process.env.ADMIN_API_KEY;
 
@@ -60,60 +64,44 @@ export interface RegisterResponse {
 
 export async function login(email: string, password: string): Promise<ApiResponse<LoginResponse>> {
   try {
-    const response = await fetch(`${API_BASE_URL}/auth/login`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      credentials: 'include', // Include cookies in request
-      body: JSON.stringify({ email, password }),
+    logger.trackEvent('user_login_attempt', { email });
+    const response = await apiClient.post<ApiResponse<LoginResponse>>('/auth/login', {
+      email,
+      password,
     });
 
-    const data = await response.json();
-    return data;
+    logger.trackEvent('user_login_success', { email, tenantId: response.data.data?.tenant.id });
+    return response.data;
   } catch (error) {
+    const errorMessage = error instanceof AxiosError
+      ? (error.response?.data as any)?.error || error.message
+      : error instanceof Error ? error.message : 'Network error occurred';
+    
+    logger.trackError('user_login_failed', error instanceof Error ? error : new Error(errorMessage), { email });
+    
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Network error occurred',
-    }
+      error: errorMessage,
+    };
   }
 }
 
 // Get current authenticated user
 export async function getCurrentUser(): Promise<ApiResponse<LoginResponse>> {
   try {
-    const response = await fetch(`${API_BASE_URL}/auth/me`, {
-      method: 'GET',
-      credentials: 'include', // Include cookies in request
-    });
-
-    // Parse JSON response regardless of status code (server returns JSON even on errors)
-    let data: ApiResponse<LoginResponse>;
-    try {
-      data = await response.json();
-    } catch (parseError) {
-      // If JSON parsing fails, return error response
-      return {
-        success: false,
-        error: 'Invalid response from server',
-      };
-    }
-
-    // If response is not ok, ensure we return success: false
-    if (!response.ok) {
-      return {
-        success: false,
-        error: data.error || `HTTP ${response.status}: ${response.statusText}`,
-      };
-    }
-
-    return data;
+    const response = await apiClient.get<ApiResponse<LoginResponse>>('/auth/me');
+    return response.data;
   } catch (error) {
-    // Network errors or other fetch failures
+    const errorMessage = error instanceof AxiosError
+      ? (error.response?.data as any)?.error || error.message
+      : error instanceof Error ? error.message : 'Network error occurred';
+    
+    logger.trackError('get_current_user_failed', error instanceof Error ? error : new Error(errorMessage));
+    
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Network error occurred',
-    }
+      error: errorMessage,
+    };
   }
 }
 
@@ -124,40 +112,48 @@ export async function register(
   website?: string
 ): Promise<ApiResponse<RegisterResponse>> {
   try {
-    const response = await fetch(`${API_BASE_URL}/auth/register`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      credentials: 'include', // Include cookies in request
-      body: JSON.stringify({ name, email, password, website }),
+    logger.trackEvent('user_register_attempt', { email, name });
+    const response = await apiClient.post<ApiResponse<RegisterResponse>>('/auth/register', {
+      name,
+      email,
+      password,
+      website,
     });
 
-    const data = await response.json();
-    return data;
+    logger.trackEvent('user_register_success', { email, tenantId: response.data.data?.id });
+    return response.data;
   } catch (error) {
+    const errorMessage = error instanceof AxiosError
+      ? (error.response?.data as any)?.error || error.message
+      : error instanceof Error ? error.message : 'Network error occurred';
+    
+    logger.trackError('user_register_failed', error instanceof Error ? error : new Error(errorMessage), { email });
+    
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Network error occurred',
-    }
+      error: errorMessage,
+    };
   }
 }
 
 // Logout - clears session cookie
 export async function logout(): Promise<ApiResponse<{ message: string }>> {
   try {
-    const response = await fetch(`${API_BASE_URL}/auth/logout`, {
-      method: 'POST',
-      credentials: 'include', // Include cookies in request
-    });
-
-    const data = await response.json();
-    return data;
+    logger.trackEvent('user_logout');
+    const response = await apiClient.post<ApiResponse<{ message: string }>>('/auth/logout');
+    logger.trackEvent('user_logout_success');
+    return response.data;
   } catch (error) {
+    const errorMessage = error instanceof AxiosError
+      ? (error.response?.data as any)?.error || error.message
+      : error instanceof Error ? error.message : 'Network error occurred';
+    
+    logger.trackError('user_logout_failed', error instanceof Error ? error : new Error(errorMessage));
+    
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Network error occurred',
-    }
+      error: errorMessage,
+    };
   }
 }
 
@@ -177,55 +173,60 @@ export interface SendVerificationCodeResponse {
 
 export async function sendVerificationCode(): Promise<ApiResponse<SendVerificationCodeResponse>> {
   try {
-    const response = await fetch(`${API_BASE_URL}/auth/send-verification-code`, {
-      method: 'POST',
-      credentials: 'include',
-    });
-
-    const data = await response.json();
-    return data;
+    logger.trackEvent('send_verification_code_attempt');
+    const response = await apiClient.post<ApiResponse<SendVerificationCodeResponse>>('/auth/send-verification-code');
+    logger.trackEvent('send_verification_code_success');
+    return response.data;
   } catch (error) {
+    const errorMessage = error instanceof AxiosError
+      ? (error.response?.data as any)?.error || error.message
+      : error instanceof Error ? error.message : 'Network error occurred';
+    
+    logger.trackError('send_verification_code_failed', error instanceof Error ? error : new Error(errorMessage));
+    
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Network error occurred',
+      error: errorMessage,
     };
   }
 }
 
 export async function verifyEmail(code: string): Promise<ApiResponse<VerifyEmailResponse>> {
   try {
-    const response = await fetch(`${API_BASE_URL}/auth/verify-email`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      credentials: 'include',
-      body: JSON.stringify({ code }),
-    });
-
-    const data = await response.json();
-    return data;
+    logger.trackEvent('verify_email_attempt');
+    const response = await apiClient.post<ApiResponse<VerifyEmailResponse>>('/auth/verify-email', { code });
+    logger.trackEvent('verify_email_success');
+    return response.data;
   } catch (error) {
+    const errorMessage = error instanceof AxiosError
+      ? (error.response?.data as any)?.error || error.message
+      : error instanceof Error ? error.message : 'Network error occurred';
+    
+    logger.trackError('verify_email_failed', error instanceof Error ? error : new Error(errorMessage));
+    
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Network error occurred',
+      error: errorMessage,
     };
   }
 }
 
 export async function resendVerificationCode(): Promise<ApiResponse<SendVerificationCodeResponse>> {
   try {
-    const response = await fetch(`${API_BASE_URL}/auth/resend-verification-code`, {
-      method: 'POST',
-      credentials: 'include',
-    });
-
-    const data = await response.json();
-    return data;
+    logger.trackEvent('resend_verification_code_attempt');
+    const response = await apiClient.post<ApiResponse<SendVerificationCodeResponse>>('/auth/resend-verification-code');
+    logger.trackEvent('resend_verification_code_success');
+    return response.data;
   } catch (error) {
+    const errorMessage = error instanceof AxiosError
+      ? (error.response?.data as any)?.error || error.message
+      : error instanceof Error ? error.message : 'Network error occurred';
+    
+    logger.trackError('resend_verification_code_failed', error instanceof Error ? error : new Error(errorMessage));
+    
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Network error occurred',
+      error: errorMessage,
     };
   }
 }
@@ -330,55 +331,56 @@ export async function createProduct(
   description?: string
 ): Promise<ApiResponse<Product>> {
   try {
-    const response = await fetch(`${API_BASE_URL}/products`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      credentials: 'include',
-      body: JSON.stringify({ name, description }),
-    });
-
-    const data = await response.json();
-    return data;
+    logger.trackEvent('create_product_attempt', { name });
+    const response = await apiClient.post<ApiResponse<Product>>('/products', { name, description });
+    logger.trackEvent('create_product_success', { productId: response.data.data?.id, name });
+    return response.data;
   } catch (error) {
+    const errorMessage = error instanceof AxiosError
+      ? (error.response?.data as any)?.error || error.message
+      : error instanceof Error ? error.message : 'Network error occurred';
+    
+    logger.trackError('create_product_failed', error instanceof Error ? error : new Error(errorMessage), { name });
+    
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Network error occurred',
+      error: errorMessage,
     };
   }
 }
 
 export async function getProducts(): Promise<ApiResponse<Product[]>> {
   try {
-    const response = await fetch(`${API_BASE_URL}/products`, {
-      method: 'GET',
-      credentials: 'include',
-    });
-
-    const data = await response.json();
-    return data;
+    const response = await apiClient.get<ApiResponse<Product[]>>('/products');
+    return response.data;
   } catch (error) {
+    const errorMessage = error instanceof AxiosError
+      ? (error.response?.data as any)?.error || error.message
+      : error instanceof Error ? error.message : 'Network error occurred';
+    
+    logger.trackError('get_products_failed', error instanceof Error ? error : new Error(errorMessage));
+    
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Network error occurred',
+      error: errorMessage,
     };
   }
 }
 
 export async function getProduct(id: string): Promise<ApiResponse<Product>> {
   try {
-    const response = await fetch(`${API_BASE_URL}/products/${id}`, {
-      method: 'GET',
-      credentials: 'include',
-    });
-
-    const data = await response.json();
-    return data;
+    const response = await apiClient.get<ApiResponse<Product>>(`/products/${id}`);
+    return response.data;
   } catch (error) {
+    const errorMessage = error instanceof AxiosError
+      ? (error.response?.data as any)?.error || error.message
+      : error instanceof Error ? error.message : 'Network error occurred';
+    
+    logger.trackError('get_product_failed', error instanceof Error ? error : new Error(errorMessage), { productId: id });
+    
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Network error occurred',
+      error: errorMessage,
     };
   }
 }
@@ -394,65 +396,65 @@ export async function createPlan(
   features?: string[]
 ): Promise<ApiResponse<Plan>> {
   try {
-    const response = await fetch(`${API_BASE_URL}/plans`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      credentials: 'include',
-      body: JSON.stringify({
-        productId,
-        name,
-        description,
-        maxSeats,
-        expiresInDays,
-        features,
-      }),
+    logger.trackEvent('create_plan_attempt', { productId, name });
+    const response = await apiClient.post<ApiResponse<Plan>>('/plans', {
+      productId,
+      name,
+      description,
+      maxSeats,
+      expiresInDays,
+      features,
     });
-
-    const data = await response.json();
-    return data;
+    logger.trackEvent('create_plan_success', { planId: response.data.data?.id, productId, name });
+    return response.data;
   } catch (error) {
+    const errorMessage = error instanceof AxiosError
+      ? (error.response?.data as any)?.error || error.message
+      : error instanceof Error ? error.message : 'Network error occurred';
+    
+    logger.trackError('create_plan_failed', error instanceof Error ? error : new Error(errorMessage), { productId, name });
+    
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Network error occurred',
+      error: errorMessage,
     };
   }
 }
 
 export async function getPlans(productId?: string): Promise<ApiResponse<Plan[]>> {
   try {
-    const url = productId
-      ? `${API_BASE_URL}/plans?productId=${encodeURIComponent(productId)}`
-      : `${API_BASE_URL}/plans`;
-    const response = await fetch(url, {
-      method: 'GET',
-      credentials: 'include',
+    const response = await apiClient.get<ApiResponse<Plan[]>>('/plans', {
+      params: productId ? { productId } : undefined,
     });
-
-    const data = await response.json();
-    return data;
+    return response.data;
   } catch (error) {
+    const errorMessage = error instanceof AxiosError
+      ? (error.response?.data as any)?.error || error.message
+      : error instanceof Error ? error.message : 'Network error occurred';
+    
+    logger.trackError('get_plans_failed', error instanceof Error ? error : new Error(errorMessage), { productId });
+    
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Network error occurred',
+      error: errorMessage,
     };
   }
 }
 
 export async function getPlan(id: string): Promise<ApiResponse<Plan>> {
   try {
-    const response = await fetch(`${API_BASE_URL}/plans/${id}`, {
-      method: 'GET',
-      credentials: 'include',
-    });
-
-    const data = await response.json();
-    return data;
+    const response = await apiClient.get<ApiResponse<Plan>>(`/plans/${id}`);
+    return response.data;
   } catch (error) {
+    const errorMessage = error instanceof AxiosError
+      ? (error.response?.data as any)?.error || error.message
+      : error instanceof Error ? error.message : 'Network error occurred';
+    
+    logger.trackError('get_plan_failed', error instanceof Error ? error : new Error(errorMessage), { planId: id });
+    
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Network error occurred',
+      error: errorMessage,
     };
   }
 }
@@ -464,58 +466,58 @@ export async function createLicense(
   expiresInDays?: number
 ): Promise<ApiResponse<License>> {
   try {
-    const response = await fetch(`${API_BASE_URL}/licenses`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      credentials: 'include',
-      body: JSON.stringify({ planId, expiresInDays }),
-    });
-
-    const data = await response.json();
-    return data;
+    logger.trackEvent('create_license_attempt', { planId });
+    const response = await apiClient.post<ApiResponse<License>>('/licenses', { planId, expiresInDays });
+    logger.trackEvent('create_license_success', { licenseId: response.data.data?.id, planId });
+    return response.data;
   } catch (error) {
+    const errorMessage = error instanceof AxiosError
+      ? (error.response?.data as any)?.error || error.message
+      : error instanceof Error ? error.message : 'Network error occurred';
+    
+    logger.trackError('create_license_failed', error instanceof Error ? error : new Error(errorMessage), { planId });
+    
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Network error occurred',
+      error: errorMessage,
     };
   }
 }
 
 export async function getLicenses(planId?: string): Promise<ApiResponse<License[]>> {
   try {
-    const url = planId
-      ? `${API_BASE_URL}/licenses?planId=${encodeURIComponent(planId)}`
-      : `${API_BASE_URL}/licenses`;
-    const response = await fetch(url, {
-      method: 'GET',
-      credentials: 'include',
+    const response = await apiClient.get<ApiResponse<License[]>>('/licenses', {
+      params: planId ? { planId } : undefined,
     });
-
-    const data = await response.json();
-    return data;
+    return response.data;
   } catch (error) {
+    const errorMessage = error instanceof AxiosError
+      ? (error.response?.data as any)?.error || error.message
+      : error instanceof Error ? error.message : 'Network error occurred';
+    
+    logger.trackError('get_licenses_failed', error instanceof Error ? error : new Error(errorMessage), { planId });
+    
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Network error occurred',
+      error: errorMessage,
     };
   }
 }
 
 export async function getLicenseUsage(id: string): Promise<ApiResponse<LicenseUsage>> {
   try {
-    const response = await fetch(`${API_BASE_URL}/licenses/${id}`, {
-      method: 'GET',
-      credentials: 'include',
-    });
-
-    const data = await response.json();
-    return data;
+    const response = await apiClient.get<ApiResponse<LicenseUsage>>(`/licenses/${id}`);
+    return response.data;
   } catch (error) {
+    const errorMessage = error instanceof AxiosError
+      ? (error.response?.data as any)?.error || error.message
+      : error instanceof Error ? error.message : 'Network error occurred';
+    
+    logger.trackError('get_license_usage_failed', error instanceof Error ? error : new Error(errorMessage), { licenseId: id });
+    
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Network error occurred',
+      error: errorMessage,
     };
   }
 }
@@ -535,21 +537,23 @@ export async function assignLicense(
   metadata?: Record<string, any>
 ): Promise<ApiResponse<UserLicense>> {
   try {
-    const response = await fetch(`${API_BASE_URL}/licenses/${licenseId}/assign`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      credentials: 'include',
-      body: JSON.stringify({ userId, metadata }),
+    logger.trackEvent('assign_license_attempt', { licenseId, userId });
+    const response = await apiClient.post<ApiResponse<UserLicense>>(`/licenses/${licenseId}/assign`, {
+      userId,
+      metadata,
     });
-
-    const data = await response.json();
-    return data;
+    logger.trackEvent('assign_license_success', { licenseId, userId });
+    return response.data;
   } catch (error) {
+    const errorMessage = error instanceof AxiosError
+      ? (error.response?.data as any)?.error || error.message
+      : error instanceof Error ? error.message : 'Network error occurred';
+    
+    logger.trackError('assign_license_failed', error instanceof Error ? error : new Error(errorMessage), { licenseId, userId });
+    
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Network error occurred',
+      error: errorMessage,
     };
   }
 }
@@ -558,20 +562,20 @@ export async function assignLicense(
 
 export async function getUsers(externalId?: string): Promise<ApiResponse<LaaSUser[]>> {
   try {
-    const url = externalId
-      ? `${API_BASE_URL}/users?externalId=${encodeURIComponent(externalId)}`
-      : `${API_BASE_URL}/users`;
-    const response = await fetch(url, {
-      method: 'GET',
-      credentials: 'include',
+    const response = await apiClient.get<ApiResponse<LaaSUser[]>>('/users', {
+      params: externalId ? { externalId } : undefined,
     });
-
-    const data = await response.json();
-    return data;
+    return response.data;
   } catch (error) {
+    const errorMessage = error instanceof AxiosError
+      ? (error.response?.data as any)?.error || error.message
+      : error instanceof Error ? error.message : 'Network error occurred';
+    
+    logger.trackError('get_users_failed', error instanceof Error ? error : new Error(errorMessage), { externalId });
+    
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Network error occurred',
+      error: errorMessage,
     };
   }
 }
@@ -583,31 +587,29 @@ export async function getAuditLogs(
   entityId?: string
 ): Promise<ApiResponse<AuditLog[]>> {
   try {
-    const params = new URLSearchParams();
-    if (entityType) params.append('entityType', entityType);
-    if (entityId) params.append('entityId', entityId);
-    const queryString = params.toString();
-    const url = queryString
-      ? `${API_BASE_URL}/audit-logs?${queryString}`
-      : `${API_BASE_URL}/audit-logs`;
-    const response = await fetch(url, {
-      method: 'GET',
-      credentials: 'include',
+    const params: Record<string, string> = {};
+    if (entityType) params.entityType = entityType;
+    if (entityId) params.entityId = entityId;
+    
+    const response = await apiClient.get<ApiResponse<AuditLog[]>>('/audit-logs', {
+      params: Object.keys(params).length > 0 ? params : undefined,
     });
-
-    const data = await response.json();
-    return data;
+    return response.data;
   } catch (error) {
+    const errorMessage = error instanceof AxiosError
+      ? (error.response?.data as any)?.error || error.message
+      : error instanceof Error ? error.message : 'Network error occurred';
+    
+    logger.trackError('get_audit_logs_failed', error instanceof Error ? error : new Error(errorMessage), { entityType, entityId });
+    
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Network error occurred',
+      error: errorMessage,
     };
   }
 }
 
 // ========== BILLING API ==========
-
-const BILLING_URL = process.env.NEXT_PUBLIC_BILLING_URL;
 
 export interface Subscription {
   id: string;
@@ -633,56 +635,61 @@ export async function createCheckoutSession(
   priceId: string
 ): Promise<ApiResponse<CreateCheckoutSessionResponse>> {
   try {
-    const response = await fetch(`${BILLING_URL}/create-checkout-session`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      credentials: 'include',
-      body: JSON.stringify({ priceId }),
+    logger.trackEvent('create_checkout_session_attempt', { priceId });
+    const response = await billingClient.post<ApiResponse<CreateCheckoutSessionResponse>>('/create-checkout-session', {
+      priceId,
     });
-
-    const data = await response.json();
-    return data;
+    logger.trackEvent('create_checkout_session_success', { priceId, sessionId: response.data.data?.sessionId });
+    return response.data;
   } catch (error) {
+    const errorMessage = error instanceof AxiosError
+      ? (error.response?.data as any)?.error || error.message
+      : error instanceof Error ? error.message : 'Network error occurred';
+    
+    logger.trackError('create_checkout_session_failed', error instanceof Error ? error : new Error(errorMessage), { priceId });
+    
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Network error occurred',
-    }
+      error: errorMessage,
+    };
   }
 }
 
 export async function getSubscription(): Promise<ApiResponse<Subscription | null>> {
   try {
-    const response = await fetch(`${BILLING_URL}/subscription`, {
-      method: 'GET',
-      credentials: 'include',
-    });
-
-    const data = await response.json();
-    return data;
+    const response = await billingClient.get<ApiResponse<Subscription | null>>('/subscription');
+    return response.data;
   } catch (error) {
+    const errorMessage = error instanceof AxiosError
+      ? (error.response?.data as any)?.error || error.message
+      : error instanceof Error ? error.message : 'Network error occurred';
+    
+    logger.trackError('get_subscription_failed', error instanceof Error ? error : new Error(errorMessage));
+    
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Network error occurred',
-    }
+      error: errorMessage,
+    };
   }
 }
 
 export async function cancelSubscription(): Promise<ApiResponse<{ message: string; cancelAtPeriodEnd: boolean }>> {
   try {
-    const response = await fetch(`${BILLING_URL}/cancel-subscription`, {
-      method: 'POST',
-      credentials: 'include',
-    });
-
-    const data = await response.json();
-    return data;
+    logger.trackEvent('cancel_subscription_attempt');
+    const response = await billingClient.post<ApiResponse<{ message: string; cancelAtPeriodEnd: boolean }>>('/cancel-subscription');
+    logger.trackEvent('cancel_subscription_success', { cancelAtPeriodEnd: response.data.data?.cancelAtPeriodEnd });
+    return response.data;
   } catch (error) {
+    const errorMessage = error instanceof AxiosError
+      ? (error.response?.data as any)?.error || error.message
+      : error instanceof Error ? error.message : 'Network error occurred';
+    
+    logger.trackError('cancel_subscription_failed', error instanceof Error ? error : new Error(errorMessage));
+    
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Network error occurred',
-    }
+      error: errorMessage,
+    };
   }
 }
 
@@ -692,18 +699,21 @@ export interface CreateBillingPortalSessionResponse {
 
 export async function createBillingPortalSession(): Promise<ApiResponse<CreateBillingPortalSessionResponse>> {
   try {
-    const response = await fetch(`${BILLING_URL}/create-billing-portal-session`, {
-      method: 'POST',
-      credentials: 'include',
-    });
-
-    const data = await response.json();
-    return data;
+    logger.trackEvent('create_billing_portal_session_attempt');
+    const response = await billingClient.post<ApiResponse<CreateBillingPortalSessionResponse>>('/create-billing-portal-session');
+    logger.trackEvent('create_billing_portal_session_success');
+    return response.data;
   } catch (error) {
+    const errorMessage = error instanceof AxiosError
+      ? (error.response?.data as any)?.error || error.message
+      : error instanceof Error ? error.message : 'Network error occurred';
+    
+    logger.trackError('create_billing_portal_session_failed', error instanceof Error ? error : new Error(errorMessage));
+    
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Network error occurred',
-    }
+      error: errorMessage,
+    };
   }
 }
 
@@ -736,38 +746,41 @@ export async function createApiKey(
   expiresInDays?: number
 ): Promise<ApiResponse<CreateApiKeyResponse>> {
   try {
-    const response = await fetch(`${API_BASE_URL}/api-keys`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      credentials: 'include',
-      body: JSON.stringify({ name, expiresInDays }),
+    logger.trackEvent('create_api_key_attempt', { name });
+    const response = await apiClient.post<ApiResponse<CreateApiKeyResponse>>('/api-keys', {
+      name,
+      expiresInDays,
     });
-
-    const data = await response.json();
-    return data;
+    logger.trackEvent('create_api_key_success', { apiKeyId: response.data.data?.apiKeyRecord.id, name });
+    return response.data;
   } catch (error) {
+    const errorMessage = error instanceof AxiosError
+      ? (error.response?.data as any)?.error || error.message
+      : error instanceof Error ? error.message : 'Network error occurred';
+    
+    logger.trackError('create_api_key_failed', error instanceof Error ? error : new Error(errorMessage), { name });
+    
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Network error occurred',
+      error: errorMessage,
     };
   }
 }
 
 export async function getApiKeys(): Promise<ApiResponse<TenantApiKey[]>> {
   try {
-    const response = await fetch(`${API_BASE_URL}/api-keys`, {
-      method: 'GET',
-      credentials: 'include',
-    });
-
-    const data = await response.json();
-    return data;
+    const response = await apiClient.get<ApiResponse<TenantApiKey[]>>('/api-keys');
+    return response.data;
   } catch (error) {
+    const errorMessage = error instanceof AxiosError
+      ? (error.response?.data as any)?.error || error.message
+      : error instanceof Error ? error.message : 'Network error occurred';
+    
+    logger.trackError('get_api_keys_failed', error instanceof Error ? error : new Error(errorMessage));
+    
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Network error occurred',
+      error: errorMessage,
     };
   }
 }
@@ -815,21 +828,24 @@ export async function createTenant(
 ): Promise<ApiResponse<Tenant>> {
   try {
     const adminApiKey = getAdminApiKey();
-    const response = await fetch(`${API_BASE_URL}/tenants`, {
-      method: 'POST',
+    logger.trackEvent('create_tenant_attempt', { name: request.name, email: request.email });
+    const response = await apiClient.post<ApiResponse<Tenant>>('/tenants', request, {
       headers: {
-        'Content-Type': 'application/json',
         'Authorization': `Bearer ${adminApiKey}`,
       },
-      body: JSON.stringify(request),
     });
-
-    const data = await response.json();
-    return data;
+    logger.trackEvent('create_tenant_success', { tenantId: response.data.data?.id, name: request.name });
+    return response.data;
   } catch (error) {
+    const errorMessage = error instanceof AxiosError
+      ? (error.response?.data as any)?.error || error.message
+      : error instanceof Error ? error.message : 'Network error occurred';
+    
+    logger.trackError('create_tenant_failed', error instanceof Error ? error : new Error(errorMessage), { name: request.name });
+    
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Network error occurred',
+      error: errorMessage,
     };
   }
 }
@@ -841,19 +857,22 @@ export async function createTenant(
 export async function getAllTenants(): Promise<ApiResponse<Tenant[]>> {
   try {
     const adminApiKey = getAdminApiKey();
-    const response = await fetch(`${API_BASE_URL}/tenants`, {
-      method: 'GET',
+    const response = await apiClient.get<ApiResponse<Tenant[]>>('/tenants', {
       headers: {
         'Authorization': `Bearer ${adminApiKey}`,
       },
     });
-
-    const data = await response.json();
-    return data;
+    return response.data;
   } catch (error) {
+    const errorMessage = error instanceof AxiosError
+      ? (error.response?.data as any)?.error || error.message
+      : error instanceof Error ? error.message : 'Network error occurred';
+    
+    logger.trackError('get_all_tenants_failed', error instanceof Error ? error : new Error(errorMessage));
+    
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Network error occurred',
+      error: errorMessage,
     };
   }
 }
@@ -865,19 +884,22 @@ export async function getAllTenants(): Promise<ApiResponse<Tenant[]>> {
 export async function getTenantById(id: string): Promise<ApiResponse<Tenant>> {
   try {
     const adminApiKey = getAdminApiKey();
-    const response = await fetch(`${API_BASE_URL}/tenants/${id}`, {
-      method: 'GET',
+    const response = await apiClient.get<ApiResponse<Tenant>>(`/tenants/${id}`, {
       headers: {
         'Authorization': `Bearer ${adminApiKey}`,
       },
     });
-
-    const data = await response.json();
-    return data;
+    return response.data;
   } catch (error) {
+    const errorMessage = error instanceof AxiosError
+      ? (error.response?.data as any)?.error || error.message
+      : error instanceof Error ? error.message : 'Network error occurred';
+    
+    logger.trackError('get_tenant_by_id_failed', error instanceof Error ? error : new Error(errorMessage), { tenantId: id });
+    
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Network error occurred',
+      error: errorMessage,
     };
   }
 }
@@ -892,21 +914,24 @@ export async function createTenantApiKey(
 ): Promise<ApiResponse<CreateTenantApiKeyResponse>> {
   try {
     const adminApiKey = getAdminApiKey();
-    const response = await fetch(`${API_BASE_URL}/tenants/${tenantId}/api-keys`, {
-      method: 'POST',
+    logger.trackEvent('create_tenant_api_key_attempt', { tenantId, name: request.name });
+    const response = await apiClient.post<ApiResponse<CreateTenantApiKeyResponse>>(`/tenants/${tenantId}/api-keys`, request, {
       headers: {
-        'Content-Type': 'application/json',
         'Authorization': `Bearer ${adminApiKey}`,
       },
-      body: JSON.stringify(request),
     });
-
-    const data = await response.json();
-    return data;
+    logger.trackEvent('create_tenant_api_key_success', { tenantId, apiKeyId: response.data.data?.apiKeyRecord.id });
+    return response.data;
   } catch (error) {
+    const errorMessage = error instanceof AxiosError
+      ? (error.response?.data as any)?.error || error.message
+      : error instanceof Error ? error.message : 'Network error occurred';
+    
+    logger.trackError('create_tenant_api_key_failed', error instanceof Error ? error : new Error(errorMessage), { tenantId });
+    
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Network error occurred',
+      error: errorMessage,
     };
   }
 }

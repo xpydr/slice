@@ -1,3 +1,4 @@
+import axios, { AxiosInstance, AxiosError, AxiosRequestConfig, AxiosResponse } from 'axios';
 import {
   SliceAPIError,
   SliceAuthenticationError,
@@ -18,6 +19,7 @@ export class HttpClient {
   private apiKey: string;
   private baseUrl: string;
   private defaultTimeout: number;
+  private axiosInstance: AxiosInstance;
 
   constructor(apiKey: string, baseUrl: string, defaultTimeout: number = 30000) {
     if (!apiKey) {
@@ -26,6 +28,52 @@ export class HttpClient {
     this.apiKey = apiKey;
     this.baseUrl = baseUrl.replace(/\/$/, ''); // Remove trailing slash
     this.defaultTimeout = defaultTimeout;
+
+    // Create Axios instance
+    this.axiosInstance = axios.create({
+      baseURL: this.baseUrl,
+      timeout: this.defaultTimeout,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${this.apiKey}`,
+      },
+    });
+
+    // Add request interceptor for logging
+    this.axiosInstance.interceptors.request.use(
+      (config) => {
+        const startTime = Date.now();
+        (config as any).startTime = startTime;
+        return config;
+      },
+      (error) => {
+        return Promise.reject(error);
+      }
+    );
+
+    // Add response interceptor for logging and error handling
+    this.axiosInstance.interceptors.response.use(
+      (response) => {
+        const startTime = (response.config as any).startTime;
+        const duration = startTime ? Date.now() - startTime : undefined;
+        // Log successful requests in development
+        if (process.env.NODE_ENV !== 'production') {
+          console.debug(`[SDK] ${response.config.method?.toUpperCase()} ${response.config.url} - ${response.status} (${duration}ms)`);
+        }
+        return response;
+      },
+      (error: AxiosError) => {
+        const startTime = (error.config as any)?.startTime;
+        const duration = startTime ? Date.now() - startTime : undefined;
+        
+        // Log errors
+        if (process.env.NODE_ENV !== 'production') {
+          console.error(`[SDK] ${error.config?.method?.toUpperCase()} ${error.config?.url} - Error (${duration}ms):`, error.message);
+        }
+        
+        return Promise.reject(error);
+      }
+    );
   }
 
   /**
@@ -36,93 +84,43 @@ export class HttpClient {
     path: string,
     options: SliceRequestOptions = {}
   ): Promise<HttpClientResponse<T>> {
-    const url = `${this.baseUrl}${path}`;
     const timeout = options.timeout ?? this.defaultTimeout;
 
-    const headers: HeadersInit = {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${this.apiKey}`,
-      ...options.headers,
+    const config: AxiosRequestConfig = {
+      method: method as any,
+      url: path,
+      timeout,
+      headers: {
+        ...options.headers,
+      },
     };
 
-    // Create AbortController for timeout
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeout);
-
     try {
-      const response = await fetch(url, {
-        method,
-        headers,
-        signal: controller.signal,
-      });
-
-      clearTimeout(timeoutId);
-
-      // Parse response body
-      let data: any;
-      const contentType = response.headers.get('content-type');
-      if (contentType && contentType.includes('application/json')) {
-        try {
-          data = await response.json();
-        } catch (e) {
-          // If JSON parsing fails, use text
-          data = await response.text();
-        }
-      } else {
-        data = await response.text();
-      }
-
-      // Handle error responses
-      if (!response.ok) {
-        const errorMessage = data?.error || data?.message || `HTTP ${response.status}: ${response.statusText}`;
-        
-        if (response.status === 401 || response.status === 403) {
-          throw new SliceAuthenticationError(errorMessage, response.status, data);
-        } else if (response.status === 400) {
-          throw new SliceValidationError(errorMessage, data);
-        } else {
-          throw new SliceAPIError(errorMessage, response.status, data);
-        }
-      }
+      const response = await this.axiosInstance.request<T>(config);
 
       // Extract data from ApiResponse wrapper if present
-      const responseData = data?.data !== undefined ? data.data : data;
+      const responseData = (response.data as any)?.data !== undefined 
+        ? (response.data as any).data 
+        : response.data;
+
+      // Convert Axios headers to Headers object for compatibility
+      const headers = new Headers();
+      Object.entries(response.headers).forEach(([key, value]) => {
+        if (typeof value === 'string') {
+          headers.set(key, value);
+        } else if (Array.isArray(value)) {
+          headers.set(key, value.join(', '));
+        }
+      });
 
       return {
         data: responseData as T,
         status: response.status,
         statusText: response.statusText,
-        headers: response.headers,
+        headers,
       };
     } catch (error: any) {
-      clearTimeout(timeoutId);
-
-      // Handle AbortError (timeout)
-      if (error.name === 'AbortError') {
-        throw new SliceTimeoutError(`Request timeout after ${timeout}ms`);
-      }
-
-      // Re-throw our custom errors
-      if (
-        error instanceof SliceAPIError ||
-        error instanceof SliceAuthenticationError ||
-        error instanceof SliceValidationError ||
-        error instanceof SliceNetworkError ||
-        error instanceof SliceTimeoutError
-      ) {
-        throw error;
-      }
-
-      // Handle network errors
-      if (error instanceof TypeError && error.message.includes('fetch')) {
-        throw new SliceNetworkError('Network error: Failed to connect to API', error);
-      }
-
-      // Unknown error
-      throw new SliceNetworkError(
-        error?.message || 'Unknown error occurred',
-        error
-      );
+      return this.handleError(error, timeout);
     }
   }
 
@@ -141,30 +139,22 @@ export class HttpClient {
     body?: any,
     options?: SliceRequestOptions
   ): Promise<HttpClientResponse<T>> {
-    const url = `${this.baseUrl}${path}`;
     const timeout = options?.timeout ?? this.defaultTimeout;
 
-    const headers: HeadersInit = {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${this.apiKey}`,
-      ...options?.headers,
+    const config: AxiosRequestConfig = {
+      method: 'POST',
+      url: path,
+      data: body,
+      timeout,
+      headers: {
+        ...options?.headers,
+      },
     };
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeout);
-
     try {
-      const response = await fetch(url, {
-        method: 'POST',
-        headers,
-        body: body ? JSON.stringify(body) : undefined,
-        signal: controller.signal,
-      });
-
-      clearTimeout(timeoutId);
+      const response = await this.axiosInstance.request<T>(config);
       return this.handleResponse<T>(response);
     } catch (error: any) {
-      clearTimeout(timeoutId);
       return this.handleError(error, timeout);
     }
   }
@@ -177,81 +167,85 @@ export class HttpClient {
     body?: any,
     options?: SliceRequestOptions
   ): Promise<HttpClientResponse<T>> {
-    const url = `${this.baseUrl}${path}`;
     const timeout = options?.timeout ?? this.defaultTimeout;
 
-    const headers: HeadersInit = {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${this.apiKey}`,
-      ...options?.headers,
+    const config: AxiosRequestConfig = {
+      method: 'PATCH',
+      url: path,
+      data: body,
+      timeout,
+      headers: {
+        ...options?.headers,
+      },
     };
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeout);
-
     try {
-      const response = await fetch(url, {
-        method: 'PATCH',
-        headers,
-        body: body ? JSON.stringify(body) : undefined,
-        signal: controller.signal,
-      });
-
-      clearTimeout(timeoutId);
+      const response = await this.axiosInstance.request<T>(config);
       return this.handleResponse<T>(response);
     } catch (error: any) {
-      clearTimeout(timeoutId);
       return this.handleError(error, timeout);
     }
   }
 
   /**
-   * Handle fetch response
+   * Handle Axios response
    */
-  private async handleResponse<T>(response: Response): Promise<HttpClientResponse<T>> {
-    let data: any;
-    const contentType = response.headers.get('content-type');
-    
-    if (contentType && contentType.includes('application/json')) {
-      try {
-        data = await response.json();
-      } catch (e) {
-        data = await response.text();
-      }
-    } else {
-      data = await response.text();
-    }
+  private handleResponse<T>(response: AxiosResponse): HttpClientResponse<T> {
+    // Extract data from ApiResponse wrapper if present
+    const responseData = (response.data as any)?.data !== undefined 
+      ? (response.data as any).data 
+      : response.data;
 
-    if (!response.ok) {
-      const errorMessage = data?.error || data?.message || `HTTP ${response.status}: ${response.statusText}`;
-      
-      if (response.status === 401 || response.status === 403) {
-        throw new SliceAuthenticationError(errorMessage, response.status, data);
-      } else if (response.status === 400) {
-        throw new SliceValidationError(errorMessage, data);
-      } else {
-        throw new SliceAPIError(errorMessage, response.status, data);
+    // Convert Axios headers to Headers object for compatibility
+    const headers = new Headers();
+    Object.entries(response.headers).forEach(([key, value]) => {
+      if (typeof value === 'string') {
+        headers.set(key, value);
+      } else if (Array.isArray(value)) {
+        headers.set(key, value.join(', '));
       }
-    }
-
-    const responseData = data?.data !== undefined ? data.data : data;
+    });
 
     return {
       data: responseData as T,
       status: response.status,
       statusText: response.statusText,
-      headers: response.headers,
+      headers,
     };
   }
 
   /**
-   * Handle errors from fetch
+   * Handle errors from Axios
    */
   private handleError(error: any, timeout: number): never {
-    if (error.name === 'AbortError') {
-      throw new SliceTimeoutError(`Request timeout after ${timeout}ms`);
+    // Handle Axios timeout
+    if (axios.isAxiosError(error)) {
+      if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
+        throw new SliceTimeoutError(`Request timeout after ${timeout}ms`);
+      }
+
+      // Handle HTTP error responses
+      if (error.response) {
+        const status = error.response.status;
+        const data = error.response.data;
+        const errorMessage = data?.error || data?.message || `HTTP ${status}: ${error.response.statusText}`;
+
+        if (status === 401 || status === 403) {
+          throw new SliceAuthenticationError(errorMessage, status, data);
+        } else if (status === 400) {
+          throw new SliceValidationError(errorMessage, data);
+        } else {
+          throw new SliceAPIError(errorMessage, status, data);
+        }
+      }
+
+      // Handle network errors (no response)
+      if (error.request) {
+        throw new SliceNetworkError('Network error: Failed to connect to API', error);
+      }
     }
 
+    // Re-throw our custom errors
     if (
       error instanceof SliceAPIError ||
       error instanceof SliceAuthenticationError ||
@@ -262,11 +256,7 @@ export class HttpClient {
       throw error;
     }
 
-    if (error instanceof TypeError && error.message.includes('fetch')) {
-      throw new SliceNetworkError('Network error: Failed to connect to API', error);
-    }
-
+    // Unknown error
     throw new SliceNetworkError(error?.message || 'Unknown error occurred', error);
   }
 }
-
