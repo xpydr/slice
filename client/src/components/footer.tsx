@@ -25,7 +25,7 @@ export function Footer() {
                 </Link>
               </li>
               <li>
-                <Link href="/docs/api" className="hover:text-primary transition-colors">
+                <Link href="/docs/api/validate" className="hover:text-primary transition-colors">
                   API Reference
                 </Link>
               </li>
