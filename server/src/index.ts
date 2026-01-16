@@ -150,6 +150,13 @@ fastify.get('/health', async () => {
   };
 });
 
+// Robots.txt
+fastify.get('/robots.txt', async (_, reply) => {
+  return reply
+    .type('text/plain')
+    .send(`User-agent: *\nDisallow: /`);
+});
+
 // API Routes
 fastify.register(validateRouter, { prefix: '/api/v1/validate' });
 fastify.register(adminRouter, { prefix: '/api/v1/admin' });
