@@ -48,6 +48,8 @@ serverLogger.setFastifyInstance(fastify);
 
 // Register raw body plugin
 fastify.register(rawBody, {
+  encoding: false,
+  runFirst: true,
   field: 'rawBody',
   global: false,
 });
