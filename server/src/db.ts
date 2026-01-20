@@ -3,10 +3,6 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
 import { Product, Plan, License, Activation, AuditLog, Tenant, TenantApiKey, LaaSUser, UserLicense, TenantWithApiKey, TenantSession } from './types';
 import { hashApiKey, verifyApiKey, getApiKeyPrefix } from './services/api-key-service';
-import { serverLogger } from './lib/logger';
-import dotenv from 'dotenv';
-
-dotenv.config();
 
 // Initialize Prisma client with PostgreSQL adapter
 const connectionString = process.env.DATABASE_URL;
@@ -229,13 +225,6 @@ class PrismaDB {
     return prismaPlans.map(prismaPlanToPlan);
   }
 
-  async getAllPlans(): Promise<Plan[]> {
-    const prismaPlans = await prisma.plan.findMany({
-      orderBy: { createdAt: 'desc' },
-    });
-    return prismaPlans.map(prismaPlanToPlan);
-  }
-
   // Licenses
 
   async getLicense(id: string): Promise<License | undefined> {
@@ -275,13 +264,6 @@ class PrismaDB {
     return prismaLicenses.map(prismaLicenseToLicense);
   }
 
-  async getAllLicenses(): Promise<License[]> {
-    const prismaLicenses = await prisma.license.findMany({
-      orderBy: { createdAt: 'desc' },
-    });
-    return prismaLicenses.map(prismaLicenseToLicense);
-  }
-
   // Activations
 
   // Audit Logs
@@ -298,21 +280,8 @@ class PrismaDB {
           performedBy: log.performedBy,
         },
       });
-      const duration = Date.now() - startTime;
-      serverLogger.trackDbOperation('create', 'audit_logs', duration, {
-        action: log.action,
-        entityType: log.entityType,
-        entityId: log.entityId,
-        tenantId: log.tenantId,
-      });
       return prismaAuditLogToAuditLog(prismaLog);
     } catch (error) {
-      serverLogger.trackError('create_audit_log_failed', error instanceof Error ? error : new Error('Unknown error'), {
-        action: log.action,
-        entityType: log.entityType,
-        entityId: log.entityId,
-        tenantId: log.tenantId,
-      });
       throw error;
     }
   }

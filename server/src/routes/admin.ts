@@ -5,7 +5,6 @@ import { subscriptionLicenseService } from '../services/subscription-license-ser
 import { authenticateTenant, authenticateTenantSession, authenticateTenantOrSession, AuthenticatedRequest } from '../middleware/tenant-auth';
 import { authenticateAdmin } from '../middleware/admin-auth';
 import {
-  ApiResponse,
   CreateProductRequest,
   CreatePlanRequest,
   CreateLicenseRequest,
@@ -13,7 +12,6 @@ import {
   CreateApiKeyRequest,
   CreateUserRequest,
   AssignLicenseRequest,
-  LicenseUsage,
   RegisterTenantRequest,
   LoginRequest,
   LoginResponse,
@@ -24,7 +22,6 @@ import { invalidateCacheByTags } from '../middleware/cache';
 import { generateCode, hashCode, verifyCode } from '../services/verification-code-service';
 import { sendVerificationCode } from '../services/email-service';
 import { VerifyEmailRequest } from '../types';
-import { serverLogger } from '../lib/logger';
 
 const isProduction = process.env.NODE_ENV === 'production';
 
@@ -50,8 +47,6 @@ async function adminRoutes(fastify: FastifyInstance) {
           });
         }
 
-        // For admin-created tenants, generate a temporary password hash
-        // In production, admin should set a password or send invitation
         const tempPasswordHash = await hashPassword('temp-password-' + Date.now());
         
         const tenant = await db.createTenant({
@@ -93,7 +88,6 @@ async function adminRoutes(fastify: FastifyInstance) {
     },
     async (request: FastifyRequest, reply: FastifyReply) => {
       try {
-        // TODO: Add pagination
         const tenants = await db.getAllTenants();
         return reply.send({
           success: true,
@@ -156,7 +150,6 @@ async function adminRoutes(fastify: FastifyInstance) {
           });
         }
 
-        // Verify tenant exists
         const tenant = await db.getTenant(tenantId);
         if (!tenant) {
           return reply.code(404).send({
@@ -175,11 +168,10 @@ async function adminRoutes(fastify: FastifyInstance) {
           metadata: { name },
         });
 
-        // Return API key (only shown once!)
         return reply.code(201).send({
           success: true,
           data: {
-            apiKey, // Plaintext key - store this securely!
+            apiKey,
             apiKeyRecord,
           },
         });
@@ -194,9 +186,7 @@ async function adminRoutes(fastify: FastifyInstance) {
   );
 
   // ========== AUTHENTICATION ROUTES ==========
-  // Tenant registration and login endpoints
 
-  // Register tenant (self-registration)
   fastify.post<{ Body: RegisterTenantRequest }>('/auth/register', async (request: FastifyRequest<{ Body: RegisterTenantRequest }>, reply: FastifyReply) => {
     try {
       const { name, email, password, website, metadata } = request.body;
@@ -208,7 +198,6 @@ async function adminRoutes(fastify: FastifyInstance) {
         });
       }
 
-      // Check if tenant with this email already exists
       const existingTenant = await db.getTenantByEmail(email);
       if (existingTenant) {
         return reply.code(409).send({
@@ -217,10 +206,7 @@ async function adminRoutes(fastify: FastifyInstance) {
         });
       }
 
-      // Hash password
       const passwordHash = await hashPassword(password);
-
-      // Create tenant with INACTIVE status
       const tenant = await db.createTenant({
         name,
         email,
@@ -251,7 +237,6 @@ async function adminRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // Login tenant
   fastify.post<{ Body: LoginRequest }>('/auth/login', async (request: FastifyRequest<{ Body: LoginRequest }>, reply: FastifyReply) => {
     try {
       const { email, password } = request.body;
@@ -263,7 +248,6 @@ async function adminRoutes(fastify: FastifyInstance) {
         });
       }
 
-      // Get tenant by email (includes passwordHash for verification)
       const tenantWithHash = await db.getTenantByEmail(email);
       if (!tenantWithHash) {
         return reply.code(401).send({
@@ -272,7 +256,6 @@ async function adminRoutes(fastify: FastifyInstance) {
         });
       }
 
-      // Verify password
       const isValidPassword = await verifyPassword(password, tenantWithHash.passwordHash);
       if (!isValidPassword) {
         return reply.code(401).send({
@@ -281,22 +264,16 @@ async function adminRoutes(fastify: FastifyInstance) {
         });
       }
 
-      // Create session (generates JWT and stores in database)
       const { token, session } = await createSession(tenantWithHash.id);
-
-      // Set HTTP-only cookie with JWT token
       reply.setCookie('auth_token', token, {
         httpOnly: true,
         secure: isProduction, // Only send over HTTPS in production
         sameSite: isProduction ? 'none' : 'lax', // CSRF protection
-        maxAge: 7 * 24 * 60 * 60, // 7 days in seconds
+        maxAge: 7 * 24 * 60 * 60,
         path: '/',
       });
 
-      // Return tenant info (without passwordHash and without token in body)
       const { passwordHash: _, ...tenant } = tenantWithHash;
-
-      // Check if email verification is required
       const requiresVerification = !tenant.emailVerified;
 
       return reply.send({
@@ -315,7 +292,6 @@ async function adminRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // Get current authenticated tenant
   fastify.get('/auth/me', { preHandler: authenticateTenantSession }, async (request: AuthenticatedRequest, reply: FastifyReply) => {
     try {
       if (!request.tenant) {
@@ -325,7 +301,6 @@ async function adminRoutes(fastify: FastifyInstance) {
         });
       }
 
-      // Get full tenant details
       const tenant = await db.getTenant(request.tenant.id);
       if (!tenant) {
         return reply.code(404).send({
@@ -334,7 +309,6 @@ async function adminRoutes(fastify: FastifyInstance) {
         });
       }
 
-      // Return tenant info (without passwordHash)
       const { ...tenantWithoutHash } = tenant;
 
       return reply.send({
@@ -352,7 +326,6 @@ async function adminRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // Send verification code
   fastify.post('/auth/send-verification-code', { preHandler: authenticateTenantSession }, async (request: AuthenticatedRequest, reply: FastifyReply) => {
     try {
       if (!request.tenant) {
@@ -362,7 +335,6 @@ async function adminRoutes(fastify: FastifyInstance) {
         });
       }
 
-      // Get tenant details
       const tenant = await db.getTenant(request.tenant.id);
       if (!tenant) {
         return reply.code(404).send({
@@ -371,7 +343,6 @@ async function adminRoutes(fastify: FastifyInstance) {
         });
       }
 
-      // Check if already verified
       if (tenant.emailVerified) {
         return reply.send({
           success: true,
@@ -379,18 +350,11 @@ async function adminRoutes(fastify: FastifyInstance) {
         });
       }
 
-      // Generate 6-digit code
       const code = generateCode();
       const codeHash = await hashCode(code);
-
-      // Set expiration to 15 minutes from now
       const expiresAt = new Date();
       expiresAt.setMinutes(expiresAt.getMinutes() + 15);
-
-      // Store verification code
       await db.createVerificationCode(request.tenant.id, codeHash, expiresAt);
-
-      // Send email
       await sendVerificationCode(tenant.email, code);
 
       return reply.send({
@@ -406,7 +370,6 @@ async function adminRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // Verify email with code
   fastify.post<{ Body: VerifyEmailRequest }>('/auth/verify-email', { preHandler: authenticateTenantSession }, async (request: FastifyRequest<{ Body: VerifyEmailRequest }>, reply: FastifyReply) => {
     try {
       const authRequest = request as AuthenticatedRequest;
@@ -426,7 +389,6 @@ async function adminRoutes(fastify: FastifyInstance) {
         });
       }
 
-      // Get stored verification code
       const storedCode = await db.getVerificationCode(authRequest.tenant.id);
       if (!storedCode) {
         return reply.code(400).send({
@@ -435,7 +397,6 @@ async function adminRoutes(fastify: FastifyInstance) {
         });
       }
 
-      // Check if code has expired
       if (new Date() > storedCode.expiresAt) {
         await db.deleteVerificationCode(authRequest.tenant.id);
         return reply.code(400).send({
@@ -444,7 +405,6 @@ async function adminRoutes(fastify: FastifyInstance) {
         });
       }
 
-      // Verify code
       const isValid = await verifyCode(code, storedCode.codeHash);
       if (!isValid) {
         return reply.code(400).send({
@@ -453,13 +413,8 @@ async function adminRoutes(fastify: FastifyInstance) {
         });
       }
 
-      // Update tenant email verification status
       await db.updateTenantEmailVerification(authRequest.tenant.id, true);
-
-      // Delete used verification code
       await db.deleteVerificationCode(authRequest.tenant.id);
-
-      // Get updated tenant
       const tenant = await db.getTenant(authRequest.tenant.id);
 
       return reply.send({
@@ -477,7 +432,6 @@ async function adminRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // Resend verification code
   fastify.post('/auth/resend-verification-code', { preHandler: authenticateTenantSession }, async (request: AuthenticatedRequest, reply: FastifyReply) => {
     try {
       if (!request.tenant) {
@@ -487,7 +441,6 @@ async function adminRoutes(fastify: FastifyInstance) {
         });
       }
 
-      // Get tenant details
       const tenant = await db.getTenant(request.tenant.id);
       if (!tenant) {
         return reply.code(404).send({
@@ -496,7 +449,6 @@ async function adminRoutes(fastify: FastifyInstance) {
         });
       }
 
-      // Check if already verified
       if (tenant.emailVerified) {
         return reply.send({
           success: true,
@@ -504,21 +456,12 @@ async function adminRoutes(fastify: FastifyInstance) {
         });
       }
 
-      // Delete existing code (if any)
       await db.deleteVerificationCode(request.tenant.id);
-
-      // Generate new 6-digit code
       const code = generateCode();
       const codeHash = await hashCode(code);
-
-      // Set expiration to 15 minutes from now
       const expiresAt = new Date();
       expiresAt.setMinutes(expiresAt.getMinutes() + 15);
-
-      // Store verification code
       await db.createVerificationCode(request.tenant.id, codeHash, expiresAt);
-
-      // Send email
       await sendVerificationCode(tenant.email, code);
 
       return reply.send({
@@ -534,22 +477,16 @@ async function adminRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // Logout tenant
   fastify.post('/auth/logout', async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       const token = request.cookies.auth_token;
 
       if (token) {
-        // Get session from database
         const session = await getSessionByToken(token);
-        
         if (session) {
-          // Revoke session in database
           await revokeSession(session.id);
         }
       }
-
-      // Clear cookie
       reply.clearCookie('auth_token', {
         httpOnly: true,
         secure: isProduction,
@@ -563,7 +500,6 @@ async function adminRoutes(fastify: FastifyInstance) {
       });
     } catch (error) {
       console.error('Logout error:', error);
-      // Still clear the cookie even if there's an error
       reply.clearCookie('auth_token', {
         httpOnly: true,
         secure: isProduction,
@@ -578,10 +514,6 @@ async function adminRoutes(fastify: FastifyInstance) {
   });
 
   // ========== TENANT-SCOPED ROUTES ==========
-  // Dashboard routes use JWT cookie auth (authenticateTenantSession)
-  // Tenant server routes use API key auth (authenticateTenant)
-
-  // Products (tenant-scoped) - Dashboard operations
   fastify.post<{ Body: CreateProductRequest }>(
     '/products',
     {
@@ -622,7 +554,6 @@ async function adminRoutes(fastify: FastifyInstance) {
           metadata: { name },
         });
 
-        // Invalidate cache
         await invalidateCacheByTags([`tenant:${tenant.id}:products`]);
 
         return reply.code(201).send({
@@ -696,7 +627,6 @@ async function adminRoutes(fastify: FastifyInstance) {
           });
         }
 
-        // Verify product belongs to tenant
         if (product.tenantId !== tenant.id) {
           return reply.code(403).send({
             success: false,
@@ -718,7 +648,6 @@ async function adminRoutes(fastify: FastifyInstance) {
     }
   );
 
-  // Plans (tenant-scoped) - Dashboard operations
   fastify.post<{ Body: CreatePlanRequest }>(
     '/plans',
     {
@@ -745,7 +674,6 @@ async function adminRoutes(fastify: FastifyInstance) {
           });
         }
 
-        // Verify product belongs to tenant
         const product = await db.getProduct(productId);
         if (!product) {
           return reply.code(404).send({
@@ -778,7 +706,6 @@ async function adminRoutes(fastify: FastifyInstance) {
           metadata: { productId, name },
         });
 
-        // Invalidate cache
         await invalidateCacheByTags([`tenant:${tenant.id}:plans`, `tenant:${tenant.id}:products`]);
 
         return reply.code(201).send({
@@ -816,7 +743,6 @@ async function adminRoutes(fastify: FastifyInstance) {
         let plans;
 
         if (productId) {
-          // Verify product belongs to tenant
           const product = await db.getProduct(productId);
           if (product && product.tenantId !== tenant.id) {
             return reply.code(403).send({
@@ -826,7 +752,6 @@ async function adminRoutes(fastify: FastifyInstance) {
           }
           plans = await db.getPlansByProduct(productId);
         } else {
-          // Get all plans for tenant's products
           const products = await db.getProductsByTenant(tenant.id);
           const allPlans = await Promise.all(
             products.map(p => db.getPlansByProduct(p.id))
@@ -873,7 +798,6 @@ async function adminRoutes(fastify: FastifyInstance) {
           });
         }
 
-        // Verify plan belongs to tenant
         const product = await db.getProduct(plan.productId);
         if (!product || product.tenantId !== tenant.id) {
           return reply.code(403).send({
@@ -896,7 +820,6 @@ async function adminRoutes(fastify: FastifyInstance) {
     }
   );
 
-  // Licenses (tenant-scoped) - Dashboard operations
   fastify.post<{ Body: CreateLicenseRequest }>(
     '/licenses',
     {
@@ -923,7 +846,6 @@ async function adminRoutes(fastify: FastifyInstance) {
           });
         }
 
-        // Verify plan belongs to tenant
         const plan = await db.getPlan(planId);
         if (!plan) {
           return reply.code(404).send({
@@ -940,7 +862,6 @@ async function adminRoutes(fastify: FastifyInstance) {
           });
         }
 
-        // Check license limit before creating
         const limitCheck = await subscriptionLicenseService.checkLicenseLimit(tenant.id);
         if (!limitCheck.allowed) {
           return reply.code(403).send({
@@ -959,10 +880,7 @@ async function adminRoutes(fastify: FastifyInstance) {
           });
         }
 
-        // Increment license count after successful creation
         await subscriptionLicenseService.incrementLicenseCount(tenant.id);
-
-        // Invalidate cache
         await invalidateCacheByTags([`tenant:${tenant.id}:licenses`]);
 
         return reply.code(201).send({
@@ -1000,7 +918,6 @@ async function adminRoutes(fastify: FastifyInstance) {
         let licenses;
 
         if (planId) {
-          // Verify plan belongs to tenant
           const plan = await db.getPlan(planId);
           if (plan) {
             const product = await db.getProduct(plan.productId);
@@ -1013,7 +930,6 @@ async function adminRoutes(fastify: FastifyInstance) {
           }
           licenses = await db.getLicensesByPlan(planId);
         } else {
-          // Get all licenses for tenant's products
           const products = await db.getProductsByTenant(tenant.id);
           const allLicenses = await Promise.all(
             products.flatMap(async (p) => {
@@ -1131,11 +1047,10 @@ async function adminRoutes(fastify: FastifyInstance) {
     }
   );
 
-  // Assign license to user - Supports both bearer token (tenant server) and JWT session (dashboard)
   fastify.post<{ Params: { id: string }; Body: AssignLicenseRequest }>(
     '/licenses/:id/assign',
     {
-      preHandler: [authenticateTenantOrSession], // Bearer token or JWT session
+      preHandler: [authenticateTenantOrSession],
     },
     async (request: FastifyRequest<{ Params: { id: string }; Body: AssignLicenseRequest }>, reply: FastifyReply) => {
       try {
@@ -1185,11 +1100,10 @@ async function adminRoutes(fastify: FastifyInstance) {
     }
   );
 
-  // Users (tenant-scoped) - Tenant server operation (uses API key)
   fastify.post<{ Body: CreateUserRequest }>(
     '/users',
     {
-      preHandler: [authenticateTenant], // Bearer token for tenant server
+      preHandler: [authenticateTenant],
     },
     async (request: FastifyRequest<{ Body: CreateUserRequest }>, reply: FastifyReply) => {
       try {
@@ -1212,7 +1126,6 @@ async function adminRoutes(fastify: FastifyInstance) {
           });
         }
 
-        // Check if user already exists
         let user = await db.getUserByExternalId(tenant.id, externalId);
         if (user) {
           return reply.code(409).send({
@@ -1237,7 +1150,6 @@ async function adminRoutes(fastify: FastifyInstance) {
           metadata: { externalId },
         });
 
-        // Invalidate cache
         await invalidateCacheByTags([`tenant:${tenant.id}:users`]);
 
         return reply.code(201).send({
@@ -1257,7 +1169,7 @@ async function adminRoutes(fastify: FastifyInstance) {
   fastify.get<{ Querystring: { externalId?: string } }>(
     '/users',
     {
-      preHandler: [authenticateTenantSession], // Dashboard operation
+      preHandler: [authenticateTenantSession],
     },
     async (request: FastifyRequest<{ Querystring: { externalId?: string } }>, reply: FastifyReply) => {
       try {
@@ -1295,7 +1207,6 @@ async function adminRoutes(fastify: FastifyInstance) {
     }
   );
 
-  // Audit Logs (tenant-scoped) - Dashboard operation
   fastify.get<{ Querystring: { entityType?: string; entityId?: string } }>(
     '/audit-logs',
     {
@@ -1334,7 +1245,6 @@ async function adminRoutes(fastify: FastifyInstance) {
 
   // ========== STRIPE PLAN MAPPING MANAGEMENT ==========
 
-  // Create or update Stripe plan mapping
   fastify.post<{ Body: { stripePriceId: string; name: string; maxLicenses: number; description?: string } }>(
     '/stripe-plan-mappings',
     {
@@ -1392,7 +1302,6 @@ async function adminRoutes(fastify: FastifyInstance) {
     }
   );
 
-  // Get Stripe plan mapping by price ID
   fastify.get<{ Params: { priceId: string } }>(
     '/stripe-plan-mappings/:priceId',
     {
@@ -1434,9 +1343,7 @@ async function adminRoutes(fastify: FastifyInstance) {
   );
 
   // ========== API KEYS (Tenant-scoped) ==========
-  // Dashboard routes for tenants to manage their own API keys
 
-  // Get all API keys for the authenticated tenant
   fastify.get(
     '/api-keys',
     {
@@ -1470,7 +1377,6 @@ async function adminRoutes(fastify: FastifyInstance) {
     }
   );
 
-  // Create API key for the authenticated tenant
   fastify.post<{ Body: { name?: string; expiresInDays?: number } }>(
     '/api-keys',
     {
@@ -1490,7 +1396,6 @@ async function adminRoutes(fastify: FastifyInstance) {
 
         const { name, expiresInDays } = request.body;
 
-        // Default values
         const keyName = name || 'Production Key';
         const expiryDays = expiresInDays ?? 365;
 
@@ -1504,14 +1409,12 @@ async function adminRoutes(fastify: FastifyInstance) {
           metadata: { name: keyName },
         });
 
-        // Invalidate cache
         invalidateCacheByTags([`tenant:${tenant.id}`, 'api-keys']);
 
-        // Return API key (only shown once!)
         return reply.code(201).send({
           success: true,
           data: {
-            apiKey, // Plaintext key - store this securely!
+            apiKey,
             apiKeyRecord,
           },
         });

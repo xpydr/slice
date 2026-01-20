@@ -1,9 +1,5 @@
 import Stripe from 'stripe';
-import dotenv from 'dotenv';
 import { SubscriptionStatus, Tenant } from '../types';
-import { serverLogger } from '../lib/logger';
-
-dotenv.config();
 
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
 if (!stripeSecretKey) {
@@ -20,13 +16,10 @@ export class StripeService {
    */
   static async createCustomer(tenant: Tenant): Promise<Stripe.Customer> {
     if (!stripe) {
-      serverLogger.error('Stripe not configured', new Error('STRIPE_SECRET_KEY not set'), { tenantId: tenant.id });
       throw new Error('Stripe is not configured. Please set STRIPE_SECRET_KEY.');
     }
 
-    const startTime = Date.now();
     try {
-      serverLogger.trackBusinessEvent('stripe_customer_create_attempt', tenant.id);
       const customer = await stripe.customers.create({
         email: tenant.email,
         name: tenant.name,
@@ -34,16 +27,8 @@ export class StripeService {
           tenantId: tenant.id,
         },
       });
-      const duration = Date.now() - startTime;
-      serverLogger.trackBusinessEvent('stripe_customer_create_success', tenant.id, undefined, {
-        customerId: customer.id,
-        duration,
-      });
       return customer;
     } catch (error) {
-      serverLogger.trackError('stripe_customer_create_failed', error instanceof Error ? error : new Error('Unknown error'), {
-        tenantId: tenant.id,
-      });
       throw error;
     }
   }
@@ -59,7 +44,6 @@ export class StripeService {
       throw new Error('Stripe is not configured. Please set STRIPE_SECRET_KEY.');
     }
 
-    // Convert Stripe.Address (which has null values) to AddressParam (which expects undefined)
     const addressParam: Stripe.AddressParam = {
       line1: address.line1 || undefined,
       line2: address.line2 || undefined,
@@ -69,7 +53,6 @@ export class StripeService {
       country: address.country || undefined,
     };
 
-    // Update customer with billing address
     const customer = await stripe.customers.update(customerId, {
       address: addressParam,
       metadata: {
@@ -145,7 +128,6 @@ export class StripeService {
     });
 
     if (!cancelAtPeriodEnd) {
-      // Cancel immediately
       return await stripe.subscriptions.cancel(subscriptionId);
     }
 
@@ -209,15 +191,6 @@ export class StripeService {
     }
 
     const mappedStatus = statusMap[stripeStatus] || 'incomplete';
-    
-    // Log if we encounter an unmapped status (shouldn't happen, but helps with debugging)
-    if (!statusMap[stripeStatus]) {
-      serverLogger.warn('Unmapped Stripe subscription status', {
-        stripeStatus,
-        mappedStatus: 'incomplete',
-      });
-    }
-    
     return mappedStatus;
   }
 }

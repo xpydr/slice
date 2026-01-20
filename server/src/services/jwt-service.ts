@@ -1,10 +1,7 @@
 import jwt, { JwtPayload } from 'jsonwebtoken';
 import crypto from 'crypto';
-import dotenv from 'dotenv';
 import { db } from '../db';
 import { TenantSession } from '../types';
-
-dotenv.config();
 
 const JWT_SECRET = process.env.JWT_SECRET;
 const SESSION_EXPIRY_DAYS = parseInt(process.env.SESSION_EXPIRY_DAYS || '7', 10);

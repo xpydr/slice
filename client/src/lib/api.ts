@@ -1,5 +1,4 @@
 import { apiClient, billingClient } from './axios-client';
-import { logger } from './logger';
 import axios, { AxiosError } from 'axios';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_SERVER_URL;
@@ -64,20 +63,16 @@ export interface RegisterResponse {
 
 export async function login(email: string, password: string): Promise<ApiResponse<LoginResponse>> {
   try {
-    logger.trackEvent('user_login_attempt', { email });
     const response = await apiClient.post<ApiResponse<LoginResponse>>('/auth/login', {
       email,
       password,
     });
 
-    logger.trackEvent('user_login_success', { email, tenantId: response.data.data?.tenant.id });
     return response.data;
   } catch (error) {
     const errorMessage = error instanceof AxiosError
       ? (error.response?.data as any)?.error || error.message
       : error instanceof Error ? error.message : 'Network error occurred';
-    
-    logger.trackError('user_login_failed', error instanceof Error ? error : new Error(errorMessage), { email });
     
     return {
       success: false,
@@ -86,7 +81,6 @@ export async function login(email: string, password: string): Promise<ApiRespons
   }
 }
 
-// Get current authenticated user
 export async function getCurrentUser(): Promise<ApiResponse<LoginResponse>> {
   try {
     const response = await apiClient.get<ApiResponse<LoginResponse>>('/auth/me');
@@ -95,8 +89,6 @@ export async function getCurrentUser(): Promise<ApiResponse<LoginResponse>> {
     const errorMessage = error instanceof AxiosError
       ? (error.response?.data as any)?.error || error.message
       : error instanceof Error ? error.message : 'Network error occurred';
-    
-    logger.trackError('get_current_user_failed', error instanceof Error ? error : new Error(errorMessage));
     
     return {
       success: false,
@@ -112,7 +104,6 @@ export async function register(
   website?: string
 ): Promise<ApiResponse<RegisterResponse>> {
   try {
-    logger.trackEvent('user_register_attempt', { email, name });
     const response = await apiClient.post<ApiResponse<RegisterResponse>>('/auth/register', {
       name,
       email,
@@ -120,14 +111,11 @@ export async function register(
       website,
     });
 
-    logger.trackEvent('user_register_success', { email, tenantId: response.data.data?.id });
     return response.data;
   } catch (error) {
     const errorMessage = error instanceof AxiosError
       ? (error.response?.data as any)?.error || error.message
       : error instanceof Error ? error.message : 'Network error occurred';
-    
-    logger.trackError('user_register_failed', error instanceof Error ? error : new Error(errorMessage), { email });
     
     return {
       success: false,
@@ -136,19 +124,14 @@ export async function register(
   }
 }
 
-// Logout - clears session cookie
 export async function logout(): Promise<ApiResponse<{ message: string }>> {
   try {
-    logger.trackEvent('user_logout');
     const response = await apiClient.post<ApiResponse<{ message: string }>>('/auth/logout');
-    logger.trackEvent('user_logout_success');
     return response.data;
   } catch (error) {
     const errorMessage = error instanceof AxiosError
       ? (error.response?.data as any)?.error || error.message
       : error instanceof Error ? error.message : 'Network error occurred';
-    
-    logger.trackError('user_logout_failed', error instanceof Error ? error : new Error(errorMessage));
     
     return {
       success: false,
@@ -173,16 +156,12 @@ export interface SendVerificationCodeResponse {
 
 export async function sendVerificationCode(): Promise<ApiResponse<SendVerificationCodeResponse>> {
   try {
-    logger.trackEvent('send_verification_code_attempt');
     const response = await apiClient.post<ApiResponse<SendVerificationCodeResponse>>('/auth/send-verification-code');
-    logger.trackEvent('send_verification_code_success');
     return response.data;
   } catch (error) {
     const errorMessage = error instanceof AxiosError
       ? (error.response?.data as any)?.error || error.message
       : error instanceof Error ? error.message : 'Network error occurred';
-    
-    logger.trackError('send_verification_code_failed', error instanceof Error ? error : new Error(errorMessage));
     
     return {
       success: false,
@@ -193,16 +172,12 @@ export async function sendVerificationCode(): Promise<ApiResponse<SendVerificati
 
 export async function verifyEmail(code: string): Promise<ApiResponse<VerifyEmailResponse>> {
   try {
-    logger.trackEvent('verify_email_attempt');
     const response = await apiClient.post<ApiResponse<VerifyEmailResponse>>('/auth/verify-email', { code });
-    logger.trackEvent('verify_email_success');
     return response.data;
   } catch (error) {
     const errorMessage = error instanceof AxiosError
       ? (error.response?.data as any)?.error || error.message
       : error instanceof Error ? error.message : 'Network error occurred';
-    
-    logger.trackError('verify_email_failed', error instanceof Error ? error : new Error(errorMessage));
     
     return {
       success: false,
@@ -213,16 +188,12 @@ export async function verifyEmail(code: string): Promise<ApiResponse<VerifyEmail
 
 export async function resendVerificationCode(): Promise<ApiResponse<SendVerificationCodeResponse>> {
   try {
-    logger.trackEvent('resend_verification_code_attempt');
     const response = await apiClient.post<ApiResponse<SendVerificationCodeResponse>>('/auth/resend-verification-code');
-    logger.trackEvent('resend_verification_code_success');
     return response.data;
   } catch (error) {
     const errorMessage = error instanceof AxiosError
       ? (error.response?.data as any)?.error || error.message
       : error instanceof Error ? error.message : 'Network error occurred';
-    
-    logger.trackError('resend_verification_code_failed', error instanceof Error ? error : new Error(errorMessage));
     
     return {
       success: false,
@@ -331,16 +302,12 @@ export async function createProduct(
   description?: string
 ): Promise<ApiResponse<Product>> {
   try {
-    logger.trackEvent('create_product_attempt', { name });
     const response = await apiClient.post<ApiResponse<Product>>('/products', { name, description });
-    logger.trackEvent('create_product_success', { productId: response.data.data?.id, name });
     return response.data;
   } catch (error) {
     const errorMessage = error instanceof AxiosError
       ? (error.response?.data as any)?.error || error.message
       : error instanceof Error ? error.message : 'Network error occurred';
-    
-    logger.trackError('create_product_failed', error instanceof Error ? error : new Error(errorMessage), { name });
     
     return {
       success: false,
@@ -358,8 +325,6 @@ export async function getProducts(): Promise<ApiResponse<Product[]>> {
       ? (error.response?.data as any)?.error || error.message
       : error instanceof Error ? error.message : 'Network error occurred';
     
-    logger.trackError('get_products_failed', error instanceof Error ? error : new Error(errorMessage));
-    
     return {
       success: false,
       error: errorMessage,
@@ -375,8 +340,6 @@ export async function getProduct(id: string): Promise<ApiResponse<Product>> {
     const errorMessage = error instanceof AxiosError
       ? (error.response?.data as any)?.error || error.message
       : error instanceof Error ? error.message : 'Network error occurred';
-    
-    logger.trackError('get_product_failed', error instanceof Error ? error : new Error(errorMessage), { productId: id });
     
     return {
       success: false,
@@ -396,7 +359,6 @@ export async function createPlan(
   features?: string[]
 ): Promise<ApiResponse<Plan>> {
   try {
-    logger.trackEvent('create_plan_attempt', { productId, name });
     const response = await apiClient.post<ApiResponse<Plan>>('/plans', {
       productId,
       name,
@@ -405,14 +367,11 @@ export async function createPlan(
       expiresInDays,
       features,
     });
-    logger.trackEvent('create_plan_success', { planId: response.data.data?.id, productId, name });
     return response.data;
   } catch (error) {
     const errorMessage = error instanceof AxiosError
       ? (error.response?.data as any)?.error || error.message
       : error instanceof Error ? error.message : 'Network error occurred';
-    
-    logger.trackError('create_plan_failed', error instanceof Error ? error : new Error(errorMessage), { productId, name });
     
     return {
       success: false,
@@ -432,8 +391,6 @@ export async function getPlans(productId?: string): Promise<ApiResponse<Plan[]>>
       ? (error.response?.data as any)?.error || error.message
       : error instanceof Error ? error.message : 'Network error occurred';
     
-    logger.trackError('get_plans_failed', error instanceof Error ? error : new Error(errorMessage), { productId });
-    
     return {
       success: false,
       error: errorMessage,
@@ -450,8 +407,6 @@ export async function getPlan(id: string): Promise<ApiResponse<Plan>> {
       ? (error.response?.data as any)?.error || error.message
       : error instanceof Error ? error.message : 'Network error occurred';
     
-    logger.trackError('get_plan_failed', error instanceof Error ? error : new Error(errorMessage), { planId: id });
-    
     return {
       success: false,
       error: errorMessage,
@@ -466,16 +421,12 @@ export async function createLicense(
   expiresInDays?: number
 ): Promise<ApiResponse<License>> {
   try {
-    logger.trackEvent('create_license_attempt', { planId });
     const response = await apiClient.post<ApiResponse<License>>('/licenses', { planId, expiresInDays });
-    logger.trackEvent('create_license_success', { licenseId: response.data.data?.id, planId });
     return response.data;
   } catch (error) {
     const errorMessage = error instanceof AxiosError
       ? (error.response?.data as any)?.error || error.message
       : error instanceof Error ? error.message : 'Network error occurred';
-    
-    logger.trackError('create_license_failed', error instanceof Error ? error : new Error(errorMessage), { planId });
     
     return {
       success: false,
@@ -495,8 +446,6 @@ export async function getLicenses(planId?: string): Promise<ApiResponse<License[
       ? (error.response?.data as any)?.error || error.message
       : error instanceof Error ? error.message : 'Network error occurred';
     
-    logger.trackError('get_licenses_failed', error instanceof Error ? error : new Error(errorMessage), { planId });
-    
     return {
       success: false,
       error: errorMessage,
@@ -512,8 +461,6 @@ export async function getLicenseUsage(id: string): Promise<ApiResponse<LicenseUs
     const errorMessage = error instanceof AxiosError
       ? (error.response?.data as any)?.error || error.message
       : error instanceof Error ? error.message : 'Network error occurred';
-    
-    logger.trackError('get_license_usage_failed', error instanceof Error ? error : new Error(errorMessage), { licenseId: id });
     
     return {
       success: false,
@@ -537,19 +484,15 @@ export async function assignLicense(
   metadata?: Record<string, any>
 ): Promise<ApiResponse<UserLicense>> {
   try {
-    logger.trackEvent('assign_license_attempt', { licenseId, userId });
     const response = await apiClient.post<ApiResponse<UserLicense>>(`/licenses/${licenseId}/assign`, {
       userId,
       metadata,
     });
-    logger.trackEvent('assign_license_success', { licenseId, userId });
     return response.data;
   } catch (error) {
     const errorMessage = error instanceof AxiosError
       ? (error.response?.data as any)?.error || error.message
       : error instanceof Error ? error.message : 'Network error occurred';
-    
-    logger.trackError('assign_license_failed', error instanceof Error ? error : new Error(errorMessage), { licenseId, userId });
     
     return {
       success: false,
@@ -570,8 +513,6 @@ export async function getUsers(externalId?: string): Promise<ApiResponse<LaaSUse
     const errorMessage = error instanceof AxiosError
       ? (error.response?.data as any)?.error || error.message
       : error instanceof Error ? error.message : 'Network error occurred';
-    
-    logger.trackError('get_users_failed', error instanceof Error ? error : new Error(errorMessage), { externalId });
     
     return {
       success: false,
@@ -599,8 +540,6 @@ export async function getAuditLogs(
     const errorMessage = error instanceof AxiosError
       ? (error.response?.data as any)?.error || error.message
       : error instanceof Error ? error.message : 'Network error occurred';
-    
-    logger.trackError('get_audit_logs_failed', error instanceof Error ? error : new Error(errorMessage), { entityType, entityId });
     
     return {
       success: false,
@@ -635,18 +574,14 @@ export async function createCheckoutSession(
   priceId: string
 ): Promise<ApiResponse<CreateCheckoutSessionResponse>> {
   try {
-    logger.trackEvent('create_checkout_session_attempt', { priceId });
     const response = await billingClient.post<ApiResponse<CreateCheckoutSessionResponse>>('/create-checkout-session', {
       priceId,
     });
-    logger.trackEvent('create_checkout_session_success', { priceId, sessionId: response.data.data?.sessionId });
     return response.data;
   } catch (error) {
     const errorMessage = error instanceof AxiosError
       ? (error.response?.data as any)?.error || error.message
       : error instanceof Error ? error.message : 'Network error occurred';
-    
-    logger.trackError('create_checkout_session_failed', error instanceof Error ? error : new Error(errorMessage), { priceId });
     
     return {
       success: false,
@@ -664,8 +599,6 @@ export async function getSubscription(): Promise<ApiResponse<Subscription | null
       ? (error.response?.data as any)?.error || error.message
       : error instanceof Error ? error.message : 'Network error occurred';
     
-    logger.trackError('get_subscription_failed', error instanceof Error ? error : new Error(errorMessage));
-    
     return {
       success: false,
       error: errorMessage,
@@ -675,16 +608,12 @@ export async function getSubscription(): Promise<ApiResponse<Subscription | null
 
 export async function cancelSubscription(): Promise<ApiResponse<{ message: string; cancelAtPeriodEnd: boolean }>> {
   try {
-    logger.trackEvent('cancel_subscription_attempt');
     const response = await billingClient.post<ApiResponse<{ message: string; cancelAtPeriodEnd: boolean }>>('/cancel-subscription');
-    logger.trackEvent('cancel_subscription_success', { cancelAtPeriodEnd: response.data.data?.cancelAtPeriodEnd });
     return response.data;
   } catch (error) {
     const errorMessage = error instanceof AxiosError
       ? (error.response?.data as any)?.error || error.message
       : error instanceof Error ? error.message : 'Network error occurred';
-    
-    logger.trackError('cancel_subscription_failed', error instanceof Error ? error : new Error(errorMessage));
     
     return {
       success: false,
@@ -699,16 +628,12 @@ export interface CreateBillingPortalSessionResponse {
 
 export async function createBillingPortalSession(): Promise<ApiResponse<CreateBillingPortalSessionResponse>> {
   try {
-    logger.trackEvent('create_billing_portal_session_attempt');
     const response = await billingClient.post<ApiResponse<CreateBillingPortalSessionResponse>>('/create-billing-portal-session');
-    logger.trackEvent('create_billing_portal_session_success');
     return response.data;
   } catch (error) {
     const errorMessage = error instanceof AxiosError
       ? (error.response?.data as any)?.error || error.message
       : error instanceof Error ? error.message : 'Network error occurred';
-    
-    logger.trackError('create_billing_portal_session_failed', error instanceof Error ? error : new Error(errorMessage));
     
     return {
       success: false,
@@ -746,19 +671,15 @@ export async function createApiKey(
   expiresInDays?: number
 ): Promise<ApiResponse<CreateApiKeyResponse>> {
   try {
-    logger.trackEvent('create_api_key_attempt', { name });
     const response = await apiClient.post<ApiResponse<CreateApiKeyResponse>>('/api-keys', {
       name,
       expiresInDays,
     });
-    logger.trackEvent('create_api_key_success', { apiKeyId: response.data.data?.apiKeyRecord.id, name });
     return response.data;
   } catch (error) {
     const errorMessage = error instanceof AxiosError
       ? (error.response?.data as any)?.error || error.message
       : error instanceof Error ? error.message : 'Network error occurred';
-    
-    logger.trackError('create_api_key_failed', error instanceof Error ? error : new Error(errorMessage), { name });
     
     return {
       success: false,
@@ -775,8 +696,6 @@ export async function getApiKeys(): Promise<ApiResponse<TenantApiKey[]>> {
     const errorMessage = error instanceof AxiosError
       ? (error.response?.data as any)?.error || error.message
       : error instanceof Error ? error.message : 'Network error occurred';
-    
-    logger.trackError('get_api_keys_failed', error instanceof Error ? error : new Error(errorMessage));
     
     return {
       success: false,
@@ -828,20 +747,16 @@ export async function createTenant(
 ): Promise<ApiResponse<Tenant>> {
   try {
     const adminApiKey = getAdminApiKey();
-    logger.trackEvent('create_tenant_attempt', { name: request.name, email: request.email });
     const response = await apiClient.post<ApiResponse<Tenant>>('/tenants', request, {
       headers: {
         'Authorization': `Bearer ${adminApiKey}`,
       },
     });
-    logger.trackEvent('create_tenant_success', { tenantId: response.data.data?.id, name: request.name });
     return response.data;
   } catch (error) {
     const errorMessage = error instanceof AxiosError
       ? (error.response?.data as any)?.error || error.message
       : error instanceof Error ? error.message : 'Network error occurred';
-    
-    logger.trackError('create_tenant_failed', error instanceof Error ? error : new Error(errorMessage), { name: request.name });
     
     return {
       success: false,
@@ -868,8 +783,6 @@ export async function getAllTenants(): Promise<ApiResponse<Tenant[]>> {
       ? (error.response?.data as any)?.error || error.message
       : error instanceof Error ? error.message : 'Network error occurred';
     
-    logger.trackError('get_all_tenants_failed', error instanceof Error ? error : new Error(errorMessage));
-    
     return {
       success: false,
       error: errorMessage,
@@ -895,8 +808,6 @@ export async function getTenantById(id: string): Promise<ApiResponse<Tenant>> {
       ? (error.response?.data as any)?.error || error.message
       : error instanceof Error ? error.message : 'Network error occurred';
     
-    logger.trackError('get_tenant_by_id_failed', error instanceof Error ? error : new Error(errorMessage), { tenantId: id });
-    
     return {
       success: false,
       error: errorMessage,
@@ -914,20 +825,16 @@ export async function createTenantApiKey(
 ): Promise<ApiResponse<CreateTenantApiKeyResponse>> {
   try {
     const adminApiKey = getAdminApiKey();
-    logger.trackEvent('create_tenant_api_key_attempt', { tenantId, name: request.name });
     const response = await apiClient.post<ApiResponse<CreateTenantApiKeyResponse>>(`/tenants/${tenantId}/api-keys`, request, {
       headers: {
         'Authorization': `Bearer ${adminApiKey}`,
       },
     });
-    logger.trackEvent('create_tenant_api_key_success', { tenantId, apiKeyId: response.data.data?.apiKeyRecord.id });
     return response.data;
   } catch (error) {
     const errorMessage = error instanceof AxiosError
       ? (error.response?.data as any)?.error || error.message
       : error instanceof Error ? error.message : 'Network error occurred';
-    
-    logger.trackError('create_tenant_api_key_failed', error instanceof Error ? error : new Error(errorMessage), { tenantId });
     
     return {
       success: false,

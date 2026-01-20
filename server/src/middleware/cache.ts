@@ -287,13 +287,6 @@ export async function invalidateCacheByTags(tags: string[]): Promise<void> {
 }
 
 /**
- * Invalidate all cache entries for a tenant
- */
-export async function invalidateTenantCache(tenantId: string): Promise<void> {
-  await invalidateCacheByTags([`tenant:${tenantId}`]);
-}
-
-/**
  * Clean up expired cache entries (in-memory only, Redis handles TTL automatically)
  */
 export function cleanupExpiredCache(): void {

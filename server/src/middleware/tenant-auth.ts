@@ -1,7 +1,6 @@
 import { FastifyRequest, FastifyReply, RouteGenericInterface } from 'fastify';
 import { db } from '../db';
 import { verifyToken, getSessionByToken } from '../services/jwt-service';
-import { serverLogger } from '../lib/logger';
 
 export interface AuthenticatedRequest<T extends RouteGenericInterface = RouteGenericInterface> extends FastifyRequest<T> {
   tenant?: {
@@ -29,9 +28,8 @@ export async function authenticateTenant(
       });
     }
 
-    const apiKey = authHeader.substring(7); // Remove "Bearer " prefix
+    const apiKey = authHeader.substring(7);
 
-    // Find tenant by API key
     const tenant = await db.getTenantByApiKey(apiKey);
 
     if (!tenant) {
@@ -41,7 +39,6 @@ export async function authenticateTenant(
       });
     }
 
-    // Check API key status
     if (tenant.apiKeyStatus !== 'active') {
       return reply.code(403).send({
         success: false,
@@ -49,7 +46,6 @@ export async function authenticateTenant(
       });
     }
 
-    // Check if API key is expired
     if (tenant.apiKeyExpiresAt && tenant.apiKeyExpiresAt < new Date()) {
       return reply.code(403).send({
         success: false,
@@ -57,21 +53,15 @@ export async function authenticateTenant(
       });
     }
 
-    // Attach tenant to request
     (request as AuthenticatedRequest).tenant = {
       id: tenant.id,
       name: tenant.name,
       status: tenant.status,
     }
 
-    // Update last used timestamp (fire and forget)
     db.updateApiKeyLastUsed(tenant.apiKeyId).catch((err) => {
-      // Silently fail - this is a non-critical operation
     });
   } catch (error) {
-    serverLogger.trackError('tenant_auth_failed', error instanceof Error ? error : new Error('Unknown error'), {
-      hasAuthHeader: !!request.headers.authorization,
-    });
     return reply.code(500).send({
       success: false,
       error: 'Authentication failed',
@@ -89,7 +79,6 @@ export async function authenticateTenantSession(
   reply: FastifyReply
 ): Promise<void> {
   try {
-    // Get token from cookie
     const token = request.cookies.auth_token;
 
     if (!token) {
@@ -99,7 +88,6 @@ export async function authenticateTenantSession(
       });
     }
 
-    // Get session from database (validates token and checks if session exists and is valid)
     const session = await getSessionByToken(token);
     if (!session) {
       return reply.code(401).send({
@@ -108,7 +96,6 @@ export async function authenticateTenantSession(
       });
     }
 
-    // Get tenant from database
     const tenant = await db.getTenant(session.tenantId);
     if (!tenant) {
       return reply.code(401).send({
@@ -117,7 +104,6 @@ export async function authenticateTenantSession(
       });
     }
 
-    // Check tenant status
     if (tenant.status === 'suspended') {
       return reply.code(403).send({
         success: false,
@@ -125,10 +111,8 @@ export async function authenticateTenantSession(
       });
     }
 
-    // Update last used timestamp (fire and forget)
     db.updateSessionLastUsed(session.id).catch(console.error);
 
-    // Attach tenant to request
     (request as AuthenticatedRequest).tenant = {
       id: tenant.id,
       name: tenant.name,
@@ -153,37 +137,29 @@ export async function authenticateTenantOrSession(
   reply: FastifyReply
 ): Promise<void> {
   try {
-    // First, try bearer token authentication
     const authHeader = request.headers.authorization;
 
     if (authHeader && authHeader.startsWith('Bearer ')) {
-      const apiKey = authHeader.substring(7); // Remove "Bearer " prefix
+      const apiKey = authHeader.substring(7);
 
-      // Find tenant by API key
       const tenant = await db.getTenantByApiKey(apiKey);
 
       if (tenant) {
-        // Check API key status
         if (tenant.apiKeyStatus !== 'active') {
-          // API key is invalid, fall through to session auth
         } else if (tenant.apiKeyExpiresAt && tenant.apiKeyExpiresAt < new Date()) {
-          // API key is expired, fall through to session auth
         } else {
-          // Valid API key - attach tenant to request
           (request as AuthenticatedRequest).tenant = {
             id: tenant.id,
             name: tenant.name,
             status: tenant.status,
           };
 
-          // Update last used timestamp (fire and forget)
           db.updateApiKeyLastUsed(tenant.apiKeyId).catch(console.error);
-          return; // Successfully authenticated with API key
+          return;
         }
       }
     }
 
-    // Fall back to session authentication
     const token = request.cookies.auth_token;
 
     if (!token) {
@@ -193,7 +169,6 @@ export async function authenticateTenantOrSession(
       });
     }
 
-    // Get session from database (validates token and checks if session exists and is valid)
     const session = await getSessionByToken(token);
     if (!session) {
       return reply.code(401).send({
@@ -202,7 +177,6 @@ export async function authenticateTenantOrSession(
       });
     }
 
-    // Get tenant from database
     const tenant = await db.getTenant(session.tenantId);
     if (!tenant) {
       return reply.code(401).send({
@@ -211,7 +185,6 @@ export async function authenticateTenantOrSession(
       });
     }
 
-    // Check tenant status
     if (tenant.status === 'suspended') {
       return reply.code(403).send({
         success: false,
@@ -219,10 +192,8 @@ export async function authenticateTenantOrSession(
       });
     }
 
-    // Update last used timestamp (fire and forget)
     db.updateSessionLastUsed(session.id).catch(console.error);
 
-    // Attach tenant to request
     (request as AuthenticatedRequest).tenant = {
       id: tenant.id,
       name: tenant.name,

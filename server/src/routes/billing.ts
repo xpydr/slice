@@ -3,17 +3,12 @@ import { db } from '../db';
 import { StripeService } from '../services/stripe-service';
 import { subscriptionLicenseService } from '../services/subscription-license-service';
 import { authenticateTenantSession, AuthenticatedRequest } from '../middleware/tenant-auth';
-import { ApiResponse, CreateCheckoutSessionRequest, CreateCheckoutSessionResponse, Subscription, Tenant } from '../types';
-import { serverLogger } from '../lib/logger';
-import dotenv from 'dotenv';
+import { CreateCheckoutSessionRequest, CreateCheckoutSessionResponse, Subscription } from '../types';
 import Stripe from 'stripe';
-
-dotenv.config();
 
 async function billingRoutes(fastify: FastifyInstance) {
   // ========== CHECKOUT SESSION ==========
 
-  // Create checkout session
   fastify.post<{ Body: CreateCheckoutSessionRequest }>(
     '/create-checkout-session',
     { preHandler: [authenticateTenantSession] },
@@ -29,7 +24,6 @@ async function billingRoutes(fastify: FastifyInstance) {
           });
         }
 
-        // Get full tenant object
         const tenant = await db.getTenant(tenantId);
         if (!tenant) {
           return reply.code(404).send({
@@ -38,7 +32,6 @@ async function billingRoutes(fastify: FastifyInstance) {
           });
         }
 
-        // Check if tenant already has an active subscription
         if (tenant.stripeSubscriptionId &&
           (tenant.subscriptionStatus === 'active' || tenant.subscriptionStatus === 'trialing')) {
           return reply.code(400).send({
@@ -47,7 +40,6 @@ async function billingRoutes(fastify: FastifyInstance) {
           });
         }
 
-        // Get or create Stripe customer
         let stripeCustomerId = tenant.stripeCustomerId;
         if (!stripeCustomerId) {
           const customer = await StripeService.createCustomer(tenant);
@@ -55,7 +47,6 @@ async function billingRoutes(fastify: FastifyInstance) {
           await db.updateTenantStripeCustomer(tenant.id, stripeCustomerId);
         }
 
-        // Create checkout session
         const returnUrl = `${process.env.CLIENT_URL || 'http://localhost:3000'}/checkout/return?session_id={CHECKOUT_SESSION_ID}`;
         const session = await StripeService.createCheckoutSession(
           stripeCustomerId,
@@ -82,8 +73,6 @@ async function billingRoutes(fastify: FastifyInstance) {
 
   // ========== WEBHOOK HANDLER ==========
 
-  // Stripe webhook endpoint (no authentication - uses signature verification)
-  // Note: This endpoint needs raw body for signature verification
   fastify.post(
     '/webhook',
     { config: { rawBody: true } },
@@ -240,7 +229,7 @@ async function billingRoutes(fastify: FastifyInstance) {
               try {
                 await subscriptionLicenseService.updateSubscriptionFromWebhook(
                   tenant.id,
-                  null, // TODO: verify cancellation and deletion processes in Stripe dashboard
+                  null,
                   null, 
                   'canceled'
                 );
@@ -268,7 +257,6 @@ async function billingRoutes(fastify: FastifyInstance) {
 
   // ========== SUBSCRIPTION MANAGEMENT ==========
 
-  // Get current subscription
   fastify.get(
     '/subscription',
     { preHandler: [authenticateTenantSession] },
@@ -320,7 +308,6 @@ async function billingRoutes(fastify: FastifyInstance) {
     }
   );
 
-  // Cancel subscription
   fastify.post(
     '/cancel-subscription',
     { preHandler: [authenticateTenantSession] },
@@ -348,7 +335,6 @@ async function billingRoutes(fastify: FastifyInstance) {
           true // Cancel at period end
         );
 
-        // Update tenant subscription status
         const status = StripeService.mapSubscriptionStatus(subscription.status);
         await db.updateTenantSubscription(
           tenant.id,
@@ -374,7 +360,6 @@ async function billingRoutes(fastify: FastifyInstance) {
     }
   );
 
-  // Create billing portal session
   fastify.post(
     '/create-billing-portal-session',
     { preHandler: [authenticateTenantSession] },
@@ -397,7 +382,6 @@ async function billingRoutes(fastify: FastifyInstance) {
           });
         }
 
-        // Create return URL pointing back to dashboard settings
         const returnUrl = `${process.env.CLIENT_URL || 'http://localhost:3000'}/dashboard/settings`;
 
         const session = await StripeService.createBillingPortalSession(

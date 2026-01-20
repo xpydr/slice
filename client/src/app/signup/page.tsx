@@ -20,7 +20,6 @@ export default function SignupPage() {
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
 
-  // Redirect to dashboard if already authenticated
   useEffect(() => {
     if (!authLoading && isAuthenticated) {
       router.push('/dashboard')
@@ -31,13 +30,11 @@ export default function SignupPage() {
     e.preventDefault()
     setError('')
 
-    // Validate passwords match
     if (password !== confirmPassword) {
       setError('Passwords do not match')
       return
     }
 
-    // Validate password length
     if (password.length < 8) {
       setError('Password must be at least 8 characters')
       return
@@ -49,7 +46,6 @@ export default function SignupPage() {
       const response = await register(name, email, password)
       
       if (response.success && response.data) {
-        // Redirect to login page with message that verification code was sent
         router.push('/login?registered=true')
       } else {
         setError(response.error || 'Registration failed. Please try again.')
@@ -61,7 +57,6 @@ export default function SignupPage() {
     }
   }
 
-  // Show loading state while checking authentication
   if (authLoading) {
     return (
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-24">
@@ -76,7 +71,6 @@ export default function SignupPage() {
     )
   }
 
-  // Don't render signup form if authenticated (redirect will happen)
   if (isAuthenticated) {
     return null
   }

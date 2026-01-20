@@ -1,8 +1,7 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { laasLicenseService } from '../services/laas-license-service';
-import { ValidateLicenseRequest, ApiResponse, ValidateLicenseResponse } from '../types';
+import { ValidateLicenseRequest } from '../types';
 import { authenticateTenant, AuthenticatedRequest } from '../middleware/tenant-auth';
-import { serverLogger } from '../lib/logger';
 
 async function validateRoutes(fastify: FastifyInstance) {
   // Validate user license - main LaaS endpoint
@@ -44,16 +43,6 @@ async function validateRoutes(fastify: FastifyInstance) {
           data: result,
         });
       } catch (error) {
-        const authenticatedRequest = request as Partial<AuthenticatedRequest>;
-        const tenantId = authenticatedRequest?.tenant?.id;
-        serverLogger.trackError(
-          'validate_license_failed',
-          error instanceof Error ? error : new Error('Unknown error'),
-          {
-            tenantId,
-            userId: request.body.userId,
-          }
-        );
         return reply.code(500).send({
           success: false,
           error: 'Internal server error',

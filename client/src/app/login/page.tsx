@@ -20,7 +20,6 @@ function LoginContent() {
   const [message, setMessage] = useState('')
   const [isLoading, setIsLoading] = useState(false)
 
-  // Redirect to dashboard if already authenticated
   useEffect(() => {
     if (!authLoading && isAuthenticated) {
       router.push('/dashboard')
@@ -44,16 +43,11 @@ function LoginContent() {
       const response = await login(email, password)
       
       if (response.success && response.data) {
-        // Cookie is automatically set by server, no need to store token
-        // Update auth state with user data
         setAuthUser(response.data.tenant)
         
-        // Check if email verification is required
         if (response.data.requiresVerification || !response.data.tenant.emailVerified) {
-          // Redirect to verification page
           router.push('/verify-email')
         } else {
-          // Redirect to dashboard on success
           router.push('/dashboard')
         }
       } else {
@@ -66,7 +60,6 @@ function LoginContent() {
     }
   }
 
-  // Show loading state while checking authentication
   if (authLoading) {
     return (
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-24">
@@ -81,7 +74,6 @@ function LoginContent() {
     )
   }
 
-  // Don't render login form if authenticated (redirect will happen)
   if (isAuthenticated) {
     return null
   }
