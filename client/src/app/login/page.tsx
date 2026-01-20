@@ -17,7 +17,7 @@ function LoginContent() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
+  const [message, setMessage] = useState('')
   const [isLoading, setIsLoading] = useState(false)
 
   // Redirect to dashboard if already authenticated
@@ -30,11 +30,7 @@ function LoginContent() {
   useEffect(() => {
     if (searchParams) {
       if (searchParams.get('registered') === 'true') {
-        if (searchParams.get('verificationSent') === 'true') {
-          setSuccess('Account created successfully! A verification code has been sent to your email. Please sign in and verify your email.')
-        } else {
-          setSuccess('Account created successfully! Please sign in with your credentials.')
-        }
+        setMessage('Account created successfully! Please sign in with your credentials.')
       }
     }
   }, [searchParams])
@@ -102,9 +98,9 @@ function LoginContent() {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
-              {success && (
+              {message && (
                 <div className="p-3 text-sm text-green-600 bg-green-50 border border-green-200 rounded-md">
-                  {success}
+                  {message}
                 </div>
               )}
               {error && (

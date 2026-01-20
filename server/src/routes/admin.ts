@@ -238,25 +238,6 @@ async function adminRoutes(fastify: FastifyInstance) {
         metadata: { name, email },
       });
 
-      // Generate and send verification code
-      try {
-        const code = generateCode();
-        const codeHash = await hashCode(code);
-
-        // Set expiration to 15 minutes from now
-        const expiresAt = new Date();
-        expiresAt.setMinutes(expiresAt.getMinutes() + 15);
-
-        // Store verification code
-        await db.createVerificationCode(tenant.id, codeHash, expiresAt);
-
-        // Send email
-        await sendVerificationCode(email, code);
-      } catch (emailError) {
-        // Log error but don't fail registration
-        console.error('Failed to send verification email during registration:', emailError);
-      }
-
       return reply.code(201).send({
         success: true,
         data: tenant,

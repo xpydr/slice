@@ -50,7 +50,7 @@ export default function SignupPage() {
       
       if (response.success && response.data) {
         // Redirect to login page with message that verification code was sent
-        router.push('/login?registered=true&verificationSent=true')
+        router.push('/login?registered=true')
       } else {
         setError(response.error || 'Registration failed. Please try again.')
       }
