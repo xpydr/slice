@@ -124,7 +124,7 @@ export default function LicensesPage() {
         </CardHeader>
         <CardContent>
           {filteredLicensesQueryWithFilter.data && !filteredLicensesQueryWithFilter.data.success && (
-            <div className="mb-4 text-sm text-red-600">{filteredLicensesQueryWithFilter.data.error || 'Failed to fetch licenses'}</div>
+            <div className="mb-4 text-sm text-red-600 dark:text-red-400">{filteredLicensesQueryWithFilter.data.error || 'Failed to fetch licenses'}</div>
           )}
           {showCreateLicense && (
             <Card className="mb-4">
@@ -211,10 +211,10 @@ export default function LicensesPage() {
                         <div className="flex items-center gap-2">
                           <span className="font-medium">{getPlanName(license.planId)}</span>
                           <span className={`text-xs px-2 py-1 rounded ${
-                            license.status === 'active' ? 'bg-green-100 text-green-800' :
-                            license.status === 'suspended' ? 'bg-yellow-100 text-yellow-800' :
-                            license.status === 'revoked' ? 'bg-red-100 text-red-800' :
-                            'bg-gray-100 text-gray-800'
+                            license.status === 'active' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
+                            license.status === 'suspended' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
+                            license.status === 'revoked' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' :
+                            'bg-muted text-muted-foreground'
                           }`}>
                             {license.status}
                           </span>
@@ -315,7 +315,7 @@ export default function LicensesPage() {
                     </Button>
                   </div>
                   {assignError && (
-                    <div className="text-sm text-red-600">{assignError}</div>
+                    <div className="text-sm text-red-600 dark:text-red-400">{assignError}</div>
                   )}
                 </form>
               </CardContent>

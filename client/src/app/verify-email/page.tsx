@@ -133,12 +133,12 @@ export default function VerifyEmailPage() {
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               {success && (
-                <div className="p-3 text-sm text-green-600 bg-green-50 border border-green-200 rounded-md">
+                <div className="p-3 text-sm text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-md">
                   {success}
                 </div>
               )}
               {error && (
-                <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md">
+                <div className="p-3 text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-md">
                   {error}
                 </div>
               )}

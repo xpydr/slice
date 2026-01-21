@@ -71,7 +71,7 @@ export default function ApiKeysPage() {
         </CardHeader>
         <CardContent>
           {apiKeysQuery.data && !apiKeysQuery.data.success && (
-            <div className="mb-4 text-sm text-red-600">{apiKeysQuery.data.error || 'Failed to fetch API keys'}</div>
+            <div className="mb-4 text-sm text-red-600 dark:text-red-400">{apiKeysQuery.data.error || 'Failed to fetch API keys'}</div>
           )}
           
           {/* Show newly created key with warning */}
@@ -94,7 +94,7 @@ export default function ApiKeysPage() {
                   <p className="text-sm font-semibold text-yellow-800 dark:text-yellow-200 mb-2">
                     ⚠️ Store this key securely. It will never be shown again.
                   </p>
-                  <div className="bg-white dark:bg-gray-800 p-3 rounded border border-yellow-300 dark:border-yellow-700 font-mono text-sm break-all">
+                  <div className="bg-card p-3 rounded border border-yellow-300 dark:border-yellow-700 font-mono text-sm break-all">
                     {newlyCreatedApiKey.apiKey}
                   </div>
                   <Button
@@ -177,8 +177,8 @@ export default function ApiKeysPage() {
                           <span className={`text-xs px-2 py-1 rounded ${
                             apiKey.status === 'active' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
                             apiKey.status === 'revoked' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' :
-                            apiKey.status === 'expired' ? 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200' :
-                            'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200'
+                            apiKey.status === 'expired' ? 'bg-muted text-muted-foreground' :
+                            'bg-muted text-muted-foreground'
                           }`}>
                             {apiKey.status}
                           </span>

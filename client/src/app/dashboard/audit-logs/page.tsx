@@ -290,7 +290,7 @@ export default function AuditLogsPage() {
           {auditLogsQuery.isLoading ? (
             <div className="text-sm text-muted-foreground">Loading audit logs...</div>
           ) : auditLogsQuery.data && !auditLogsQuery.data.success ? (
-            <div className="text-sm text-red-600">
+            <div className="text-sm text-red-600 dark:text-red-400">
               {auditLogsQuery.data.error || 'Failed to fetch audit logs'}
             </div>
           ) : paginatedLogs.length === 0 ? (

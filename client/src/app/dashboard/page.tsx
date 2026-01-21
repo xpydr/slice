@@ -158,7 +158,7 @@ export default function DashboardPage() {
             {auditLogsQuery.isLoading ? (
               <div className="text-sm text-muted-foreground">Loading...</div>
             ) : auditLogsQuery.data && !auditLogsQuery.data.success ? (
-              <div className="text-sm text-red-600">{auditLogsQuery.data.error || 'Failed to fetch audit logs'}</div>
+              <div className="text-sm text-red-600 dark:text-red-400">{auditLogsQuery.data.error || 'Failed to fetch audit logs'}</div>
             ) : auditLogs.length === 0 ? (
               <div className="text-sm text-muted-foreground">No activity yet</div>
             ) : (
@@ -171,7 +171,7 @@ export default function DashboardPage() {
                         {new Date(log.timestamp).toLocaleString()}
                       </p>
                     </div>
-                    <span className="text-xs text-green-600">Success</span>
+                    <span className="text-xs text-green-600 dark:text-green-400">Success</span>
                   </div>
                 ))}
               </div>

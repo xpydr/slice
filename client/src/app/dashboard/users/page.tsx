@@ -53,7 +53,7 @@ export default function UsersPage() {
         </CardHeader>
         <CardContent>
           {usersQuery.data && !usersQuery.data.success && (
-            <div className="mb-4 text-sm text-red-600">{usersQuery.data.error || 'Failed to fetch users'}</div>
+            <div className="mb-4 text-sm text-red-600 dark:text-red-400">{usersQuery.data.error || 'Failed to fetch users'}</div>
           )}
           <div className="mb-4">
             <Label htmlFor="user-search">Search Users</Label>

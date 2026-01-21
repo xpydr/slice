@@ -86,9 +86,9 @@ export default function SettingsPage() {
               <label className="text-sm font-medium text-muted-foreground">Email Verified</label>
               <p className="text-sm mt-1">
                 {user?.emailVerified ? (
-                  <span className="text-green-600">Verified</span>
+                  <span className="text-green-600 dark:text-green-400">Verified</span>
                 ) : (
-                  <span className="text-yellow-600">Not Verified</span>
+                  <span className="text-yellow-600 dark:text-yellow-400">Not Verified</span>
                 )}
               </p>
             </div>
@@ -129,10 +129,10 @@ export default function SettingsPage() {
                     <Label className="text-xs text-muted-foreground">Status</Label>
                     <div className="flex items-center gap-2">
                       <span className={`font-medium ${
-                        subscription.status === 'active' ? 'text-green-600' :
-                        subscription.status === 'canceled' ? 'text-red-600' :
-                        subscription.status === 'past_due' ? 'text-yellow-600' :
-                        'text-gray-600'
+                        subscription.status === 'active' ? 'text-green-600 dark:text-green-400' :
+                        subscription.status === 'canceled' ? 'text-red-600 dark:text-red-400' :
+                        subscription.status === 'past_due' ? 'text-yellow-600 dark:text-yellow-400' :
+                        'text-muted-foreground'
                       }`}>
                         {subscription.status.charAt(0).toUpperCase() + subscription.status.slice(1).replace('_', ' ')}
                       </span>
@@ -147,10 +147,10 @@ export default function SettingsPage() {
                   {subscription.cancelAtPeriodEnd && (
                     <div>
                       <Label className="text-xs text-muted-foreground flex items-center gap-1">
-                        <AlertCircle className="h-3 w-3 text-yellow-600" />
+                        <AlertCircle className="h-3 w-3 text-yellow-600 dark:text-yellow-400" />
                         Cancellation Scheduled
                       </Label>
-                      <p className="text-sm text-yellow-600">
+                      <p className="text-sm text-yellow-600 dark:text-yellow-400">
                         Will cancel on {new Date(subscription.currentPeriodEnd).toLocaleDateString()}
                       </p>
                     </div>

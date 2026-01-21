@@ -185,7 +185,7 @@ Content-Type: application/json`}</code>
                 </li>
               </ul>
             </div>
-            <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900 rounded-lg p-4">
+            <div className="bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-900 rounded-lg p-4">
               <p className="text-sm">
                 <strong>Note:</strong> An invalid license response is not an error. The API returns 
                 HTTP 200 with <code className="bg-muted px-1 rounded">valid: false</code>. This allows 
@@ -212,7 +212,7 @@ Content-Type: application/json`}</code>
               <li>Creates or updates the activation record</li>
               <li>Returns the license details and features</li>
             </ol>
-            <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900 rounded-lg p-4">
+            <div className="bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-900 rounded-lg p-4">
               <p className="text-sm">
                 <strong>Auto-creation:</strong> If a user doesn&apos;t exist, the API automatically 
                 creates them with the provided <code className="bg-muted px-1 rounded">userId</code>. 

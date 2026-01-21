@@ -37,7 +37,7 @@ export default function RateLimitingPage() {
                 <li><strong>Tracking:</strong> Per tenant (based on API key)</li>
               </ul>
             </div>
-            <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900 rounded-lg p-4">
+            <div className="bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-900 rounded-lg p-4">
               <p className="text-sm">
                 Rate limits are configurable via environment variables. Contact support for higher limits.
               </p>

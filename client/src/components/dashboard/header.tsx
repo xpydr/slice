@@ -65,7 +65,7 @@ export function DashboardHeader() {
                     </Link>
                     <button
                       onClick={handleLogout}
-                      className="w-full text-left px-3 py-2 text-sm hover:bg-accent rounded-sm flex items-center gap-2 text-red-600"
+                      className="w-full text-left px-3 py-2 text-sm hover:bg-accent rounded-sm flex items-center gap-2 text-red-600 dark:text-red-400"
                     >
                       <LogOut className="h-4 w-4" />
                       Log out

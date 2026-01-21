@@ -70,7 +70,7 @@ export default function ProductsPage() {
         </CardHeader>
         <CardContent>
           {productsQuery.data && !productsQuery.data.success && (
-            <div className="mb-4 text-sm text-red-600">{productsQuery.data.error || 'Failed to fetch products'}</div>
+            <div className="mb-4 text-sm text-red-600 dark:text-red-400">{productsQuery.data.error || 'Failed to fetch products'}</div>
           )}
           {showCreateProduct && (
             <Card className="mb-4">

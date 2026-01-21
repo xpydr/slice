@@ -80,7 +80,7 @@ export default function QuickStartPage() {
                 <li>Log in to your dashboard</li>
               </ol>
             </div>
-            <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900 rounded-lg p-4">
+            <div className="bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-900 rounded-lg p-4">
               <p className="text-sm">
                 <strong>Tip:</strong> After signing up, you&apos;ll need to verify your email before 
                 you can access all features. Check your inbox for the verification code.

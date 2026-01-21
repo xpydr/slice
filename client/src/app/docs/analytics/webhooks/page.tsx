@@ -35,7 +35,7 @@ export default function WebhooksPage() {
               <li>License status changes</li>
               <li>User activations</li>
             </ul>
-            <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900 rounded-lg p-4">
+            <div className="bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-900 rounded-lg p-4">
               <p className="text-sm">
                 In the meantime, you can monitor activity through audit logs and the dashboard.
               </p>

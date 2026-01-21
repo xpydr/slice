@@ -110,7 +110,7 @@ export default function FirstRequestPage() {
 }`}</code>
               </pre>
             </div>
-            <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900 rounded-lg p-4">
+            <div className="bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-900 rounded-lg p-4">
               <p className="text-sm">
                 <strong>Note:</strong> The <code className="bg-muted px-1 rounded">userId</code> is your 
                 internal user identifier. It can be any string that uniquely identifies the user in your system.

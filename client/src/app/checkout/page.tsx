@@ -101,7 +101,7 @@ function CheckoutContent() {
           <Card className="w-full max-w-2xl">
             <CardContent className="pt-6">
               <div className="text-center space-y-4">
-                <h2 className="text-2xl font-bold text-red-600">Error</h2>
+                <h2 className="text-2xl font-bold text-red-600 dark:text-red-400">Error</h2>
                 <p className="text-muted-foreground">{error}</p>
                 <div className="flex gap-2 justify-center">
                   <Link href="/pricing">

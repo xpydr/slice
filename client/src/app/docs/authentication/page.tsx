@@ -45,7 +45,7 @@ export default function AuthenticationPage() {
                 <code>{`Authorization: Bearer sk_live_abc123...`}</code>
               </pre>
             </div>
-            <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900 rounded-lg p-4">
+            <div className="bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-900 rounded-lg p-4">
               <p className="text-sm">
                 <strong>Note:</strong> API keys start with <code className="bg-muted px-1 rounded">sk_live_</code> for 
                 production keys or <code className="bg-muted px-1 rounded">sk_test_</code> for test keys.

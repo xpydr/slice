@@ -96,7 +96,7 @@ export default function PlansPage() {
         </CardHeader>
         <CardContent>
           {plansQuery.data && !plansQuery.data.success && (
-            <div className="mb-4 text-sm text-red-600">{plansQuery.data.error || 'Failed to fetch plans'}</div>
+            <div className="mb-4 text-sm text-red-600 dark:text-red-400">{plansQuery.data.error || 'Failed to fetch plans'}</div>
           )}
           {showCreatePlan && (
             <Card className="mb-4">
