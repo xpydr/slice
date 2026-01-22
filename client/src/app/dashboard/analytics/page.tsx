@@ -6,7 +6,6 @@ import { Label } from '@/components/ui/label'
 import { 
   ChartContainer, 
   ChartTooltip, 
-  ChartTooltipContent 
 } from '@/components/ui/chart'
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from 'recharts'
 import { useLicenses } from '@/hooks/use-licenses'

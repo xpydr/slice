@@ -83,7 +83,9 @@ export default function PricingPage() {
   // Fetch subscription when authenticated
   useEffect(() => {
     if (isAuthenticated) {
-      setIsLoadingSubscription(true)
+      queueMicrotask(() => {
+        setIsLoadingSubscription(true)
+      })
       getSubscription()
         .then((response) => {
           if (response.success && response.data) {
@@ -140,7 +142,7 @@ export default function PricingPage() {
       try {
         const response = await createBillingPortalSession()
         if (response.success && response.data?.url) {
-          window.location.href = response.data.url
+          window.location.assign(response.data.url)
         } else {
           console.error('Failed to create billing portal session:', response.error)
           // Fallback to checkout if billing portal fails

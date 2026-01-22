@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { verifyEmail, resendVerificationCode, sendVerificationCode, getCurrentUser } from '@/lib/api'
+import { verifyEmail, resendVerificationCode, sendVerificationCode } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
 
 export default function VerifyEmailPage() {
@@ -69,7 +69,7 @@ export default function VerifyEmailPage() {
       } else {
         setError(response.error || 'Verification failed. Please try again.')
       }
-    } catch (err) {
+    } catch {
       setError('An unexpected error occurred. Please try again.')
     } finally {
       setIsLoading(false)
@@ -88,7 +88,7 @@ export default function VerifyEmailPage() {
       } else {
         setError(response.error || 'Failed to resend code. Please try again.')
       }
-    } catch (err) {
+    } catch {
       setError('An unexpected error occurred. Please try again.')
     } finally {
       setIsResending(false)

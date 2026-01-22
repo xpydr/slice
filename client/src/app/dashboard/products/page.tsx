@@ -31,7 +31,7 @@ export default function ProductsPage() {
         setProductForm({ name: '', description: '' })
         setShowCreateProduct(false)
       }
-    } catch (error) {
+    } catch {
       // Error handled by React Query
     }
   }

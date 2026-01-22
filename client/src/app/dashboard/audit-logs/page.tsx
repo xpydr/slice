@@ -14,6 +14,17 @@ type EntityTypeFilter = 'all' | 'tenant' | 'api_key' | 'user' | 'license' | 'pro
 
 const ITEMS_PER_PAGE = 20
 
+const SortIcon = ({ field, sortField, sortDirection }: { field: SortField; sortField: SortField; sortDirection: SortDirection }) => {
+  if (sortField !== field) {
+    return <ArrowUpDown className="h-4 w-4 ml-1" />
+  }
+  return sortDirection === 'asc' ? (
+    <ArrowUp className="h-4 w-4 ml-1" />
+  ) : (
+    <ArrowDown className="h-4 w-4 ml-1" />
+  )
+}
+
 export default function AuditLogsPage() {
   const auditLogsQuery = useAuditLogs()
   const [currentPage, setCurrentPage] = useState(1)
@@ -123,17 +134,6 @@ export default function AuditLogsPage() {
       setSortDirection('asc')
     }
     setCurrentPage(1)
-  }
-
-  const SortIcon = ({ field }: { field: SortField }) => {
-    if (sortField !== field) {
-      return <ArrowUpDown className="h-4 w-4 ml-1" />
-    }
-    return sortDirection === 'asc' ? (
-      <ArrowUp className="h-4 w-4 ml-1" />
-    ) : (
-      <ArrowDown className="h-4 w-4 ml-1" />
-    )
   }
 
   const formatTimestamp = (timestamp: Date | string) => {
@@ -307,7 +307,7 @@ export default function AuditLogsPage() {
                           className="flex items-center hover:text-foreground"
                         >
                           Timestamp
-                          <SortIcon field="timestamp" />
+                          <SortIcon field="timestamp" sortField={sortField} sortDirection={sortDirection} />
                         </button>
                       </th>
                       <th className="text-left p-2">
@@ -316,7 +316,7 @@ export default function AuditLogsPage() {
                           className="flex items-center hover:text-foreground"
                         >
                           Action
-                          <SortIcon field="action" />
+                          <SortIcon field="action" sortField={sortField} sortDirection={sortDirection} />
                         </button>
                       </th>
                       <th className="text-left p-2">
@@ -325,7 +325,7 @@ export default function AuditLogsPage() {
                           className="flex items-center hover:text-foreground"
                         >
                           Entity Type
-                          <SortIcon field="entityType" />
+                          <SortIcon field="entityType" sortField={sortField} sortDirection={sortDirection} />
                         </button>
                       </th>
                       <th className="text-left p-2">
@@ -334,7 +334,7 @@ export default function AuditLogsPage() {
                           className="flex items-center hover:text-foreground"
                         >
                           Entity ID
-                          <SortIcon field="entityId" />
+                          <SortIcon field="entityId" sortField={sortField} sortDirection={sortDirection} />
                         </button>
                       </th>
                       <th className="text-left p-2">Performed By</th>

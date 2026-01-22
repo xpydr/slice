@@ -32,7 +32,7 @@ export default function ApiKeysPage() {
         setApiKeyForm({ name: 'Production Key', expiresInDays: '365' })
         setShowCreateApiKey(false)
       }
-    } catch (error) {
+    } catch {
       // Error handled by React Query
     }
   }

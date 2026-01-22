@@ -61,7 +61,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await apiLogout()
       setUser(null)
       router.push('/')
-    } catch (error) {
+    } catch {
       // Even if logout fails, clear local state
       setUser(null)
       router.push('/')

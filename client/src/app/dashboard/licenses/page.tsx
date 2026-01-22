@@ -15,7 +15,6 @@ import type { Plan, Product } from '@/lib/api'
 export default function LicensesPage() {
   const plansQuery = usePlans()
   const productsQuery = useProducts()
-  const filteredLicensesQuery = useLicenses()
   const createLicenseMutation = useCreateLicense()
   const assignLicenseMutation = useAssignLicense()
   const usersQuery = useUsers()
@@ -51,7 +50,7 @@ export default function LicensesPage() {
         setLicenseForm({ planId: '', expiresInDays: '' })
         setShowCreateLicense(false)
       }
-    } catch (error) {
+      } catch {
       // Error handled by React Query
     }
   }

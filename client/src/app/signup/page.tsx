@@ -50,7 +50,7 @@ export default function SignupPage() {
       } else {
         setError(response.error || 'Registration failed. Please try again.')
       }
-    } catch (err) {
+    } catch {
       setError('An unexpected error occurred. Please try again.')
     } finally {
       setIsLoading(false)

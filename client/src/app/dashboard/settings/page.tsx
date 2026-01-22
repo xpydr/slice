@@ -49,7 +49,7 @@ export default function SettingsPage() {
         alert(response.error || 'Failed to create billing portal session')
         setLoadingPortal(false)
       }
-    } catch (error) {
+    } catch {
       alert('An error occurred while opening the billing portal')
       setLoadingPortal(false)
     }

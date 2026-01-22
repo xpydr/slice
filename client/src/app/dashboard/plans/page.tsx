@@ -53,7 +53,7 @@ export default function PlansPage() {
         })
         setShowCreatePlan(false)
       }
-    } catch (error) {
+      } catch {
       // Error handled by React Query
     }
   }

@@ -1,15 +1,14 @@
 'use client'
 
 import { useEffect, useState, Suspense } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { useSearchParams } from 'next/navigation'
+import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { CheckCircle2, Loader2, XCircle } from 'lucide-react'
 import Link from 'next/link'
 import { getSubscription } from '@/lib/api'
 
 function CheckoutReturnContent() {
-  const router = useRouter()
   const searchParams = useSearchParams()
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading')
   const sessionId = searchParams.get('session_id')

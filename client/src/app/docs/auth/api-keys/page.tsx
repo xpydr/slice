@@ -1,8 +1,8 @@
 import { Metadata } from 'next'
 import Link from 'next/link'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Key, Shield, AlertCircle } from 'lucide-react'
+import { Key, Shield } from 'lucide-react'
 
 export const metadata: Metadata = {
   title: 'API Keys',

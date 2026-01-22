@@ -4,7 +4,6 @@ import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Label } from '@/components/ui/label'
 import { Key, Users, Activity, TrendingUp, Plus, RefreshCw } from 'lucide-react'
 import { useAuth } from '@/lib/auth'
 import { useProducts } from '@/hooks/use-products'
@@ -28,7 +27,7 @@ export default function DashboardPage() {
 
   // Extract data from queries
   const products = productsQuery.data?.data || []
-  const plans = plansQuery.data?.data || []
+  // const plans = plansQuery.data?.data || []
   const licenses = licensesQuery.data?.data || []
   const users = usersQuery.data?.data || []
   const auditLogs = auditLogsQuery.data?.data || []

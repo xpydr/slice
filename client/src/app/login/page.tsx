@@ -53,7 +53,7 @@ function LoginContent() {
       } else {
         setError(response.error || 'Login failed. Please try again.')
       }
-    } catch (err) {
+    } catch {
       setError('An unexpected error occurred. Please try again.')
     } finally {
       setIsLoading(false)
