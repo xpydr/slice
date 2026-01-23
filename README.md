@@ -1,6 +1,6 @@
 # SliceAPI
 
-SliceAPI is a full LaaS **(Licensing as a Service)** platform built with Fastify, PostgreSQL, and a Next.js admin dashboard. It offers multi-tenant license management, API key authentication, usage tracking, and a TypeScript SDK for integration in client applications.
+SliceAPI is a LaaS **(Licensing as a Service)** platform built with Fastify, PostgreSQL, and a Next.js admin dashboard. It offers multi-tenant license management, API key authentication, usage tracking, and a TypeScript SDK for integration in client applications.
 
 ## Overview
 
