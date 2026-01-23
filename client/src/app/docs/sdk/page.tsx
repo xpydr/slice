@@ -76,8 +76,8 @@ export default function SDKDocsPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <p>
-              The Slice SDK is available as a workspace package. Since it&apos;s a private package, you&apos;ll need 
-              to install it from your workspace or configure it as a local dependency.
+              The Slice SDK is published and publicly available on npm. You can install it directly using your 
+              preferred package manager.
             </p>
             <div>
               <h3 className="font-semibold mb-2">Using pnpm (Recommended)</h3>
@@ -99,8 +99,8 @@ export default function SDKDocsPage() {
             </div>
             <div className="bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-900 rounded-lg p-4">
               <p className="text-sm">
-                <strong>Note:</strong> This is a private package. Make sure your workspace is properly configured 
-                to access the <code className="bg-muted px-1 rounded">@sliceapi/sdk</code> package.
+                <strong>Note:</strong> The <code className="bg-muted px-1 rounded">@sliceapi/sdk</code> package is 
+                publicly available on npm and can be installed directly without any additional configuration.
               </p>
             </div>
           </CardContent>
