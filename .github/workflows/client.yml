@@ -26,10 +26,8 @@ jobs:
       - name: Enable Corepack
         run: corepack enable
 
-      - name: Enable Corepack & prepare pnpm
-        run: |
-          corepack enable
-          corepack prepare pnpm@9.15.9 --activate
+      - name: Prepare pnpm
+        run: corepack prepare pnpm@9.15.9 --activate
 
       - name: Cache pnpm modules
         uses: actions/cache@v5
